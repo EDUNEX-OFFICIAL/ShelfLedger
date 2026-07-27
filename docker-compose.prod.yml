@@ -1,0 +1,55 @@
+# Production overlay — shared Postgres + Caddy edge.
+# Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# Requires: external networks vps_edge + postgres_shared; /srv/ShelfLedger/.env
+services:
+  # Local-only Postgres from base compose is not used in prod.
+  postgres:
+    profiles: ['local-db']
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.web
+    image: shelfledger-web:${GIT_COMMIT:-latest}
+    container_name: shelfledger-web
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      PORT: '3000'
+      HOSTNAME: 0.0.0.0
+      # Docker DNS → shared edunex-postgres on postgres_shared
+      DATABASE_URL: ${DATABASE_URL}
+      AUTH_SECRET: ${AUTH_SECRET}
+      AUTH_URL: ${AUTH_URL:-https://shelfledger.edunexservices.in}
+      APP_URL: ${APP_URL:-https://shelfledger.edunexservices.in}
+      NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-ShelfLedger}
+    ports:
+      # Loopback smoke / debug only — registered in PORT_REGISTRY.md
+      - '127.0.0.1:3002:3000'
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 45s
+    networks:
+      - shelfledger_internal
+      - vps_edge
+      - postgres_shared
+
+networks:
+  shelfledger_internal:
+    name: shelfledger_internal
+    driver: bridge
+  vps_edge:
+    external: true
+  postgres_shared:
+    external: true

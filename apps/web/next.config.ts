@@ -7,6 +7,7 @@ loadEnv({ path: resolve(__dirname, '../../.env') });
 loadEnv({ path: resolve(__dirname, '.env') });
 
 const nextConfig: NextConfig = {
+  output: 'standalone',
   transpilePackages: [
     '@shelfledger/db',
     '@shelfledger/domain',
@@ -14,6 +15,9 @@ const nextConfig: NextConfig = {
     '@shelfledger/validators',
   ],
   serverExternalPackages: ['@prisma/client', 'bcryptjs'],
+  outputFileTracingIncludes: {
+    '/**': ['./node_modules/.prisma/**/*'],
+  },
 };
 
 export default nextConfig;

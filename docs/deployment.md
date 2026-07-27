@@ -118,3 +118,34 @@ Never commit real `.env`. Use `.env.example` only.
 ## 9. Staggered Boot
 
 Register ShelfLedger after Postgres is healthy; verify `/api/health` before marking live.
+
+---
+
+## 10. CI / CD (GitHub Actions)
+
+| Workflow | Trigger | What it does |
+|----------|---------|--------------|
+| `.github/workflows/ci.yml` | PRs + non-`main` pushes | lint, format, typecheck, build |
+| `.github/workflows/deploy-vps.yml` | push to `main` + manual | same verify → SSH → `scripts/deploy-vps.sh` |
+
+Deploy path on VPS: `git fetch` → Docker build `shelfledger-web` → `pnpm db:migrate:deploy` → `curl 127.0.0.1:3002/api/health`.
+
+### GitHub repo secrets
+
+| Secret | Value (this VPS) |
+|--------|------------------|
+| `VPS_HOST` | `187.127.143.207` |
+| `VPS_USER` | `root` |
+| `VPS_PORT` | `2222` (preferred; `:22` often blocked from GitHub runners) |
+| `VPS_SSH_KEY_B64` | output of `tr -d '\n' < /root/.ssh/github_actions_deploy.b64` |
+
+Same deploy key as other Edunex projects (`github-actions-greencity-deploy` in `authorized_keys`).
+
+Optional alternate: `VPS_SSH_KEY` (raw PEM) instead of B64.
+
+### Before first deploy
+
+1. Create shared Postgres role/DB `shelfledger` (section 3).
+2. Write `/srv/ShelfLedger/.env` with production `DATABASE_URL` (host `edunex-postgres`), `AUTH_SECRET`, `AUTH_URL`, `APP_URL`.
+3. Ensure Caddy loads `sites.d/shelfledger.caddy` and DNS points `shelfledger.edunexservices.in` here.
+4. Add the four secrets above in GitHub → Settings → Secrets and variables → Actions.

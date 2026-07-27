@@ -30,6 +30,7 @@
 
 - Phase 4: Sales, GST billing, customers, exchange
 - Phase 5–6: expenses/staff/reports + deploy
+- CI/CD workflows + Docker/Caddy scaffolding added; first prod deploy still needs shared `shelfledger` DB role + GitHub secrets + production `.env`
 
 ## Never Forget
 
