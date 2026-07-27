@@ -144,6 +144,8 @@ jobs:
           git fetch origin main
           git checkout main
           git reset --hard origin/main
+          # Do not leave Actions token embedded in origin (breaks later human pushes).
+          git remote set-url origin "https://github.com/${GH_REPO}.git"
 
           if [ ! -f "$REPO/.env" ]; then
             echo "::error::Missing $REPO/.env on the VPS. Create it before deploy (see .env.example / docs/deployment.md)."

@@ -16,13 +16,15 @@ COPY packages/errors/package.json ./packages/errors/
 COPY packages/validators/package.json ./packages/validators/
 COPY packages/tsconfig/package.json ./packages/tsconfig/
 COPY packages/tsconfig/*.json ./packages/tsconfig/
+# Root postinstall runs prisma generate — schema must exist before install.
+COPY packages/db/prisma ./packages/db/prisma
+ENV DATABASE_URL="postgresql://ci:ci@127.0.0.1:5432/ci?schema=public"
 RUN --mount=type=cache,id=shelfledger-pnpm-store,target=/root/.local/share/pnpm/store \
   pnpm install --frozen-lockfile
 
 FROM deps AS build
 COPY apps/web ./apps/web
 COPY packages ./packages
-# Prisma generate needs a URL shape only (no live DB).
 ENV DATABASE_URL="postgresql://ci:ci@127.0.0.1:5432/ci?schema=public"
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
