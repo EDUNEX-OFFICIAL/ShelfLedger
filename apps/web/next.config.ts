@@ -8,16 +8,14 @@ loadEnv({ path: resolve(__dirname, '.env') });
 
 const nextConfig: NextConfig = {
   output: 'standalone',
+  // Monorepo: trace files from repo root (pnpm + workspace packages)
+  outputFileTracingRoot: resolve(__dirname, '../..'),
   transpilePackages: [
     '@shelfledger/db',
     '@shelfledger/domain',
     '@shelfledger/errors',
     '@shelfledger/validators',
   ],
-  serverExternalPackages: ['@prisma/client', 'bcryptjs'],
-  outputFileTracingIncludes: {
-    '/**': ['./node_modules/.prisma/**/*'],
-  },
 };
 
 export default nextConfig;

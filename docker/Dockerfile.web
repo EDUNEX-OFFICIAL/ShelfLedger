@@ -40,18 +40,10 @@ RUN groupadd --system shelfledger \
   && useradd --system --gid shelfledger --create-home shelfledger
 WORKDIR /repo
 
+# Next standalone traces deps from monorepo root into this tree.
 COPY --from=build --chown=shelfledger:shelfledger /repo/apps/web/.next/standalone ./
 COPY --from=build --chown=shelfledger:shelfledger /repo/apps/web/.next/static ./apps/web/.next/static
 RUN mkdir -p ./apps/web/public
-# Prisma schema + client engines for migrate / runtime
-COPY --from=build --chown=shelfledger:shelfledger /repo/packages/db/prisma ./packages/db/prisma
-COPY --from=build --chown=shelfledger:shelfledger /repo/node_modules/.pnpm ./node_modules/.pnpm
-COPY --from=build --chown=shelfledger:shelfledger /repo/node_modules/@prisma ./node_modules/@prisma
-COPY --from=build --chown=shelfledger:shelfledger /repo/node_modules/prisma ./node_modules/prisma
-COPY --from=build --chown=shelfledger:shelfledger /repo/node_modules/.prisma ./node_modules/.prisma
-COPY --from=build --chown=shelfledger:shelfledger /repo/packages/db/node_modules ./packages/db/node_modules
-COPY --from=build --chown=shelfledger:shelfledger /repo/package.json /repo/pnpm-workspace.yaml ./
-COPY --from=build --chown=shelfledger:shelfledger /repo/packages/db/package.json ./packages/db/
 
 USER shelfledger
 EXPOSE 3000
