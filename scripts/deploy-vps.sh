@@ -26,9 +26,12 @@ for net in vps_edge postgres_shared; do
 done
 
 echo "==> build shelfledger-web @ ${GIT_COMMIT}"
+# Avoid host DATABASE_URL (often 127.0.0.1 for migrate) overriding container env_file.
+unset DATABASE_URL AUTH_SECRET || true
 "${COMPOSE[@]}" build web
 
 echo "==> up shelfledger-web"
+unset DATABASE_URL AUTH_SECRET || true
 "${COMPOSE[@]}" up -d --remove-orphans --force-recreate web
 
 echo "==> prisma migrate deploy"
