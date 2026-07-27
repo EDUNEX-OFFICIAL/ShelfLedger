@@ -115,6 +115,9 @@ importers:
       '@types/bcryptjs':
         specifier: ^2.4.6
         version: 2.4.6
+      '@types/node':
+        specifier: ^20
+        version: 20.19.43
       dotenv:
         specifier: ^16.4.7
         version: 16.6.1
