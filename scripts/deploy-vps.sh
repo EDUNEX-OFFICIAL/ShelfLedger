@@ -36,45 +36,54 @@ if ! command -v pnpm >/dev/null 2>&1; then
   echo "error: pnpm required on VPS for migrations" >&2
   exit 1
 fi
-# Load DATABASE_URL for Prisma without `source` (avoids broken quoting).
+# Host-side Prisma needs 127.0.0.1 (Docker service hostname only works inside containers).
 export DATABASE_URL="$(
   node -e "
     const fs=require('fs');
     const t=fs.readFileSync('.env','utf8');
+    let host='', docker='';
     for (const line of t.split(/\\r?\\n/)) {
-      const m=line.match(/^DATABASE_URL=(.*)$/);
-      if (!m) continue;
-      let v=m[1].trim();
-      if ((v.startsWith('\"') && v.endsWith('\"')) || (v.startsWith(\"'\") && v.endsWith(\"'\"))) v=v.slice(1,-1);
-      process.stdout.write(v);
-      break;
+      let m=line.match(/^DATABASE_URL_HOST=(.*)$/);
+      if (m) {
+        let v=m[1].trim();
+        if ((v.startsWith('\"') && v.endsWith('\"')) || (v.startsWith(\"'\") && v.endsWith(\"'\"))) v=v.slice(1,-1);
+        host=v; continue;
+      }
+      m=line.match(/^DATABASE_URL=(.*)$/);
+      if (m) {
+        let v=m[1].trim();
+        if ((v.startsWith('\"') && v.endsWith('\"')) || (v.startsWith(\"'\") && v.endsWith(\"'\"))) v=v.slice(1,-1);
+        docker=v;
+      }
     }
+    const url = host || docker.replace('@edunex-postgres:', '@127.0.0.1:');
+    process.stdout.write(url);
   "
 )"
 if [ -z "${DATABASE_URL:-}" ]; then
-  echo "error: DATABASE_URL missing in .env" >&2
+  echo "error: DATABASE_URL / DATABASE_URL_HOST missing in .env" >&2
   exit 1
 fi
 pnpm install --frozen-lockfile
 pnpm db:migrate:deploy
 
-echo "==> health check"
+echo "==> health check (deep)"
 ok=0
 for _ in $(seq 1 40); do
-  if curl -fsS http://127.0.0.1:3002/api/health >/dev/null 2>&1; then
+  if curl -fsS 'http://127.0.0.1:3002/api/health?deep=1' >/dev/null 2>&1; then
     ok=1
     break
   fi
   sleep 2
 done
 if [ "$ok" != "1" ]; then
-  echo "error: health check failed on http://127.0.0.1:3002/api/health" >&2
+  echo "error: health check failed on http://127.0.0.1:3002/api/health?deep=1" >&2
   "${COMPOSE[@]}" ps
   docker logs shelfledger-web --tail 80 || true
   exit 1
 fi
 
-curl -fsS http://127.0.0.1:3002/api/health
+curl -fsS 'http://127.0.0.1:3002/api/health?deep=1'
 echo
 "${COMPOSE[@]}" ps
 echo "==> deploy ok"
