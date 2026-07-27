@@ -9,4 +9,6 @@ coverage
 .env.*.local
 *.log
 .DS_Store
+*.tsbuildinfo
+v8-compile-cache-0/
 packages/db/prisma/migrations/**/migration_lock.toml.bak
