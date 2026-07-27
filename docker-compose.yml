@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: shelfledger-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: shelfledger
+      POSTGRES_PASSWORD: shelfledger
+      POSTGRES_DB: shelfledger
+    ports:
+      - "127.0.0.1:5434:5432"
+    volumes:
+      - shelfledger_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shelfledger -d shelfledger"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  shelfledger_pg_data:

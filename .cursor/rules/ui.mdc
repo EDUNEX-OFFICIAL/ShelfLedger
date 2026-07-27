@@ -1,0 +1,14 @@
+---
+description: UI and design system for internal ERP
+globs: apps/web/**/*.{tsx,css}
+alwaysApply: false
+---
+
+# UI
+
+- Use shadcn/ui as the base component set.
+- Keep forms and tables consistent (shared Form + DataTable patterns).
+- Design mobile-first, enhance for desktop; optimize counter flows for desktop.
+- Maintain WCAG AA accessibility.
+- Enterprise minimal look: no purple gradients, no marketing heroes, no emoji icons (use lucide).
+- Follow `docs/design.md` tokens (teal accent, IBM Plex / Source Sans).

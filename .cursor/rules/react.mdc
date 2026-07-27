@@ -1,0 +1,14 @@
+---
+description: React component conventions
+globs: **/*.{tsx,jsx}
+alwaysApply: false
+---
+
+# React
+
+- Functional components only.
+- Server Components by default; add `"use client"` only when required (events, browser APIs, RHF, client-only libraries).
+- No duplicated business logic in components.
+- Keep components presentational; call server actions / hooks for data.
+- Prefer composition over inheritance.
+- Accessibility: labels, focus, keyboard support for counter flows.

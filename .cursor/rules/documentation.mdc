@@ -1,0 +1,12 @@
+---
+description: Keep documentation synchronized
+globs: docs/**/*
+alwaysApply: false
+---
+
+# Documentation
+
+- Update docs when architecture or business rules change.
+- Keep `docs/memory.md` synchronized with ADRs and phase status.
+- Record significant decisions as ADR entries in architecture/memory.
+- Do not leave placeholder architecture; mark unknowns explicitly.

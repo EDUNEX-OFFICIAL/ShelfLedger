@@ -1,0 +1,43 @@
+{
+  "name": "@shelfledger/web",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -H 127.0.0.1 -p ${WEB_PORT:-3002}",
+    "build": "next build",
+    "start": "next start -H 127.0.0.1 -p ${WEB_PORT:-3002}",
+    "lint": "next lint",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@shelfledger/db": "workspace:*",
+    "@shelfledger/domain": "workspace:*",
+    "@shelfledger/errors": "workspace:*",
+    "@shelfledger/validators": "workspace:*",
+    "bcryptjs": "^2.4.3",
+    "clsx": "^2.1.1",
+    "dotenv": "^16.4.7",
+    "lucide-react": "^0.474.0",
+    "next": "^15.1.6",
+    "next-auth": "^5.0.0-beta.25",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-hook-form": "^7.54.2",
+    "@hookform/resolvers": "^3.10.0",
+    "tailwind-merge": "^2.6.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@shelfledger/tsconfig": "workspace:*",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^20.17.14",
+    "@types/react": "^19.0.7",
+    "@types/react-dom": "^19.0.3",
+    "autoprefixer": "^10.4.20",
+    "eslint": "^9.18.0",
+    "eslint-config-next": "^15.1.6",
+    "postcss": "^8.5.1",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.7.3"
+  }
+}

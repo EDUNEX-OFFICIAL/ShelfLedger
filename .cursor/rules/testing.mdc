@@ -1,0 +1,13 @@
+---
+description: Testing expectations
+globs: "**/*.{test,spec}.{ts,tsx}"
+alwaysApply: false
+---
+
+# Testing
+
+- Unit tests for domain logic (costing, GST, discounts) in `packages/domain`.
+- Integration tests for repositories/services posting purchase/sale/exchange.
+- E2E (Playwright) for core flows: purchase → sale → exchange.
+- Prefer correctness tests over UI snapshots.
+- See `docs/testing.md`.

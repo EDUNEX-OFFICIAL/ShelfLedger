@@ -1,0 +1,15 @@
+---
+description: Next.js App Router conventions
+globs: apps/web/**/*
+alwaysApply: false
+---
+
+# Next.js
+
+- App Router only.
+- Server Components by default.
+- Client Components only when browser APIs or interactivity are needed.
+- Prefer Server Actions for local mutations from this UI.
+- Use Route Handlers for external APIs, integrations, health, downloads.
+- Authenticated ERP pages should not be statically cached as public content.
+- Colocate feature routes under `app/(app)/...` and logic under `features/`.

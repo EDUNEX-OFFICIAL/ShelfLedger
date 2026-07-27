@@ -1,0 +1,18 @@
+---
+description: Feature-first architecture, layers, and domain boundaries for ShelfLedger
+globs:
+alwaysApply: true
+---
+
+# Architecture
+
+- Feature-first folders under `apps/web/src/features/<module>`.
+- Business logic belongs in services / `packages/domain`, not in React components.
+- UI must never import Prisma or access the database directly.
+- Keep domain models independent of UI (DTO mapping at the boundary).
+- One responsibility per module; shared cross-cuts go in `packages/*` or `components/shared`.
+- Flow: UI → Server Action / Route Handler → Service → Repository → Prisma → PostgreSQL.
+- Stock changes only via stock ledger services; balances update in the same transaction.
+- Prefer Server Actions for first-party UI mutations; Route Handlers for health, external API, webhooks.
+- Read `docs/architecture.md` and `docs/memory.md` before changing structure.
+- Work phase-by-phase per `docs/phases.md`; do not jump ahead.

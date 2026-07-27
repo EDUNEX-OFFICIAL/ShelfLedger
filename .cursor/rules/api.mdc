@@ -1,0 +1,14 @@
+---
+description: API envelope, validation, versioning
+globs: apps/web/src/app/api/**/*
+alwaysApply: false
+---
+
+# API
+
+- Consistent response envelope: `{ success, data|error, meta }`.
+- Typed error codes (`VALIDATION_ERROR`, `INSUFFICIENT_STOCK`, etc.).
+- Validate every request with Zod from `packages/validators`.
+- Version external APIs (`/api/v1/...`); Server Actions stay private/unversioned.
+- Same services for Route Handlers and Server Actions — no duplicated rules.
+- See `docs/api.md`.

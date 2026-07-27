@@ -1,0 +1,28 @@
+{
+  "name": "shelfledger",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@8.15.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @shelfledger/web dev",
+    "build": "pnpm db:generate && pnpm --filter @shelfledger/web build",
+    "postinstall": "pnpm db:generate",
+    "lint": "pnpm -r --if-present run lint",
+    "typecheck": "pnpm -r --if-present run typecheck",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "db:generate": "pnpm --filter @shelfledger/db generate",
+    "db:migrate": "pnpm --filter @shelfledger/db migrate:dev",
+    "db:migrate:deploy": "pnpm --filter @shelfledger/db migrate:deploy",
+    "db:seed": "pnpm --filter @shelfledger/db seed",
+    "db:studio": "pnpm --filter @shelfledger/db studio",
+    "db:push": "pnpm --filter @shelfledger/db push"
+  },
+  "devDependencies": {
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.3"
+  }
+}

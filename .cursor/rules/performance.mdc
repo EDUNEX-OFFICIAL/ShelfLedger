@@ -1,0 +1,14 @@
+---
+description: Performance practices
+globs:
+alwaysApply: false
+---
+
+# Performance
+
+- Paginate lists; prefer cursor pagination for ledger.
+- Index searchable columns and FKs.
+- Avoid N+1; selective Prisma queries.
+- Dynamic import heavy client-only widgets.
+- Do not statically cache authenticated stock-sensitive pages incorrectly.
+- Optimistic UI only where rollback is safe; stock posts should wait for server confirmation.

@@ -1,0 +1,15 @@
+---
+description: Security requirements
+globs:
+alwaysApply: true
+---
+
+# Security
+
+- Validate all input with Zod on the server.
+- Enforce authentication before authorization.
+- Escape/sanitize user-generated content; avoid `dangerouslySetInnerHTML`.
+- Never leak stack traces or internal errors to clients.
+- Rate-limit login; httpOnly secure cookies.
+- Non-superuser DB role in production `DATABASE_URL`.
+- Follow `docs/security.md` and VPS isolation guidelines under `/srv`.

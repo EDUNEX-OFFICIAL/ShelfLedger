@@ -1,0 +1,19 @@
+---
+description: ShelfLedger project context and never-forget rules
+globs:
+alwaysApply: true
+---
+
+# Project — ShelfLedger
+
+- Path: `/srv/ShelfLedger`. Product: **ShelfLedger** — generic retail inventory + GST billing ERP (not ecommerce). First vertical: footwear.
+- Pitchable brand: do not rename product back to “Footwear ERP” in UI or README.
+- Inventory: never store authoritative qty on products; ledger + transactional balances.
+- Average costing; soft delete; no hard delete of financial/inventory rows.
+- V1 GST: **CGST + SGST only** (same-state). Do not implement IGST flows in V1.
+- DB: shared `edunex-postgres`, dedicated DB/role `shelfledger` (never superuser `edunex` in app URL).
+- Planned host: `shelfledger.edunexservices.in` via Caddy on `vps_edge`.
+- Stack: Next.js App Router, Prisma, PostgreSQL, Tailwind, shadcn, RHF, TanStack Table/Query, Zod.
+- Deploy: Docker; only Caddy on 80/8443; private `shelfledger_internal`; update `/srv/scripts/PORT_REGISTRY.md` before host binds.
+- Execute per `docs/phases.md`. Current phase in `docs/memory.md`.
+- Never forget: no Prisma in UI; Zod on server; phase-by-phase delivery.

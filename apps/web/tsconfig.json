@@ -1,0 +1,17 @@
+{
+  "extends": "@shelfledger/tsconfig/nextjs.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@shelfledger/db": ["../../packages/db/src/index.ts"],
+      "@shelfledger/domain": ["../../packages/domain/src/index.ts"],
+      "@shelfledger/errors": ["../../packages/errors/src/index.ts"],
+      "@shelfledger/validators": ["../../packages/validators/src/index.ts"]
+    },
+    "strict": true,
+    "noUncheckedIndexedAccess": true
+  },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "exclude": ["node_modules"]
+}

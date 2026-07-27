@@ -1,0 +1,14 @@
+---
+description: Strict TypeScript standards
+globs: **/*.{ts,tsx}
+alwaysApply: false
+---
+
+# TypeScript
+
+- `strict: true` everywhere.
+- No `any`. Use `unknown` and narrow.
+- Prefer `type` unless interface extension/merging is required.
+- Exhaustive switch statements with `never` residual check.
+- Use branded types for IDs where helpful.
+- No unsafe non-null assertions without a short justification comment.

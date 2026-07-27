@@ -1,0 +1,14 @@
+---
+description: Git hygiene for this project
+globs:
+alwaysApply: false
+---
+
+# Git
+
+- Only commit when the user explicitly asks.
+- Never commit `.env`, secrets, or credentials.
+- Never update git config.
+- No force push to main/master unless explicitly requested.
+- Do not use interactive git flags (`-i`).
+- Prefer focused commits with clear why-oriented messages.

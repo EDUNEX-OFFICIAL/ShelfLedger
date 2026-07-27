@@ -1,0 +1,15 @@
+---
+description: Prisma usage rules
+globs: packages/db/**/*.{ts,prisma}
+alwaysApply: false
+---
+
+# Prisma
+
+- Never expose Prisma client to the UI.
+- All database access goes through repositories/services.
+- Use `$transaction` for multi-step inventory and posting operations.
+- Avoid N+1 queries; use selective `include` / `select`.
+- Add indexes for searchable and FK fields.
+- Schema lives in `packages/db/prisma`.
+- Never put editable stock quantity on article/variant models.

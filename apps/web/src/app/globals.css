@@ -1,0 +1,25 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 0 0% 100%;
+  --foreground: 222 25% 12%;
+  --muted: 210 20% 96%;
+  --muted-foreground: 215 12% 40%;
+  --border: 214 16% 88%;
+  --primary: 199 75% 32%;
+  --primary-foreground: 0 0% 100%;
+  --destructive: 0 72% 48%;
+  --success: 152 60% 32%;
+  --warning: 38 92% 42%;
+  --sidebar: 210 25% 10%;
+  --sidebar-foreground: 210 20% 92%;
+  --radius: 0.375rem;
+}
+
+body {
+  @apply bg-background text-foreground font-sans antialiased;
+}

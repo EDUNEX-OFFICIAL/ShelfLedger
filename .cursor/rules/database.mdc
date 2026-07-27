@@ -1,0 +1,15 @@
+---
+description: Database and inventory persistence rules
+globs: packages/db/**/*
+alwaysApply: false
+---
+
+# Database
+
+- UUIDs as primary keys.
+- Soft delete with `deletedAt`; default queries exclude deleted.
+- Audit fields: `createdAt`, `updatedAt`, `createdBy`, `updatedBy` where applicable.
+- Never physically delete financial or inventory/ledger records; void via reverse entries.
+- Ledger is source of truth; `inventory_balances` updated in the same transaction.
+- Partial unique indexes for soft-deleted masters.
+- Follow `docs/database.md` and `docs/rules.md`.

@@ -1,0 +1,13 @@
+---
+description: Forms with RHF and Zod
+globs: apps/web/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# Forms
+
+- React Hook Form + Zod resolver.
+- Reuse the same Zod schema on the server action.
+- Show field-level errors; disable double-submit on post actions.
+- Money and qty inputs: controlled formatting; parse to decimal-safe values.
+- Confirm dialogs before void/post when irreversible.
