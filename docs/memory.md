@@ -31,8 +31,9 @@
 
 ## Deploy notes
 
-- Hostname: `shelfledger.edunexservices.in` (Caddy `sites.d/shelfledger.caddy`)
+- Hostname: `shelfledger.edunexservices.in` — **live** (HTTPS health 200; Caddy `sites.d/shelfledger.caddy`)
 - Loopback smoke: `http://127.0.0.1:3002/api/health?deep=1`
+- CI deploy secrets: configured (GitHub Actions → VPS)
 - Backups: `docs/backup.md`
 - Security checklist: `docs/security-checklist.md`
 
@@ -54,14 +55,13 @@
 - **Masters pass done:** brands, categories, articles, vendors, customers — Add CTAs, SurfaceCard forms, SectionHeaders, empty-state links
 - **UI leftovers pass done:** ListToolbar/ConfirmDialog/toast/command palette radius; Post sale/purchase ConfirmDialog; purchase return dialog (no prompt); login §14; dashboard P1 metrics (outstanding ₹, vs-prior %, `/sales?payment=OPEN`)
 - **Sticky CTA + FormField pass:** shared `StickyFormActions` on Quick Sale, draft sale, purchase, exchange; FormField on those entry forms
+- **Pre-burn-in polish:** masters FormField (brand/category/vendor/customer/article); dashboard Low stock → `/reports#low-stock`; success/error micro-UX on master forms
 - **UI consistency page-by-page: complete** (dashboard through settings)
 - **Mobile-first (locked):** phones/tablets are primary staff devices — ADR-012 / `docs/design.md`
 - **Quick Sale:** `/sales/quick` — walk-in default, pay-in-full, sticky Punch sale → invoice; dashboard primary CTA
 
 ## Pending / follow-ups
 
-- DNS/public go-live confirmation for `shelfledger.edunexservices.in` if not already pointed
-- GitHub Action secrets if CI deploy from `main` is desired
 - Phase 7+ optional: barcode, multi-branch UI, IGST (not requested)
 
 ## Never Forget

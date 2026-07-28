@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { FormField } from '@/components/shared/form-field';
 import { SurfaceCard } from '@/components/shared/surface-card';
 import { createBrandAction, updateBrandAction } from '@/features/masters/actions';
 
@@ -19,6 +19,7 @@ export function BrandForm({
   const [name, setName] = useState(initial?.name ?? '');
   const [code, setCode] = useState(initial?.code ?? '');
   const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   if (!canWrite) return null;
@@ -30,12 +31,13 @@ export function BrandForm({
         onSubmit={(e) => {
           e.preventDefault();
           setMessage(null);
+          setError(null);
           startTransition(async () => {
             const result = brandId
               ? await updateBrandAction(brandId, { name, code })
               : await createBrandAction({ name, code });
             if (!result.ok) {
-              setMessage(result.error);
+              setError(result.error);
               return;
             }
             setMessage(brandId ? 'Updated' : 'Created');
@@ -46,24 +48,23 @@ export function BrandForm({
           });
         }}
       >
-        <div className="space-y-1">
-          <Label htmlFor="brand-name">Name</Label>
+        <FormField id="brand-name" label="Name" required>
           <Input
             id="brand-name"
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
           />
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor="brand-code">Code</Label>
+        </FormField>
+        <FormField id="brand-code" label="Code" hint="Optional short code">
           <Input id="brand-code" value={code} onChange={(e) => setCode(e.target.value)} />
-        </div>
+        </FormField>
         <div className="flex flex-wrap items-center gap-2">
           <Button type="submit" size="lg" disabled={pending} className="w-full sm:w-auto">
             {pending ? 'Saving…' : brandId ? 'Update' : 'Add brand'}
           </Button>
-          {message ? <span className="text-xs text-muted-foreground">{message}</span> : null}
+          {message ? <span className="text-xs font-medium text-success">{message}</span> : null}
+          {error ? <span className="text-xs text-destructive">{error}</span> : null}
         </div>
       </form>
     </SurfaceCard>

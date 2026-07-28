@@ -111,7 +111,7 @@ export default async function DashboardPage({
     },
     {
       title: 'Low stock',
-      href: '/reports',
+      href: '/reports#low-stock',
       icon: PackageMinus,
       value: (
         <span className="font-mono tabular-nums">{ops.lowStockCount}</span>

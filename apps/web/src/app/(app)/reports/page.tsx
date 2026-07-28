@@ -230,7 +230,7 @@ export default async function ReportsPage({
         </SurfaceCard>
       </section>
 
-      <section className="space-y-3">
+      <section id="low-stock" className="scroll-mt-24 space-y-3">
         <SectionHeader
           title="Low stock"
           description="Variants at or below reorder threshold."
