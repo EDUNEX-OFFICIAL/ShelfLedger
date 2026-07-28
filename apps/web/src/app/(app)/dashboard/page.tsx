@@ -177,14 +177,14 @@ export default async function DashboardPage({
         title="Dashboard"
         description={`${greeting}, ${user.name}. Showing ${bounds.label.toLowerCase()}.`}
         actions={
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:items-end">
+          <div className="flex w-full flex-col items-start gap-2 sm:w-auto sm:items-end">
             <DashboardQuickActions />
             <DashboardRangeFilter range={range} />
           </div>
         }
       />
 
-      <section className="grid grid-cols-2 gap-3 xl:grid-cols-4 xl:gap-4">
+      <section className="grid grid-cols-2 items-stretch gap-3 xl:grid-cols-4 xl:gap-4">
         {kpis.map((kpi) => (
           <KpiCard key={kpi.title} {...kpi} />
         ))}

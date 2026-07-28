@@ -1,7 +1,9 @@
 /**
  * Build a WhatsApp-ready invoice summary (plain text / wa.me ?text=).
  * Keep concise — WhatsApp URL length limits apply.
+ * Formatting: *bold* works in WhatsApp; keep ASCII separators for all clients.
  */
+
 export function normalizeWhatsAppPhone(raw: string | null | undefined): string | null {
   if (!raw) return null;
   let digits = raw.replace(/\D/g, '');
@@ -37,34 +39,84 @@ export type WhatsAppInvoiceInput = {
   paymentStatus: string;
 };
 
+function formatInr(amount: number): string {
+  return amount.toLocaleString('en-IN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+function formatInvoiceDate(isoOrDate: string): string {
+  // Accept YYYY-MM-DD or full ISO
+  const day = isoOrDate.slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(day)) {
+    const d = new Date(`${day}T00:00:00.000Z`);
+    if (!Number.isNaN(d.getTime())) {
+      return d.toLocaleDateString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        timeZone: 'UTC',
+      });
+    }
+  }
+  return isoOrDate;
+}
+
+function paymentLabel(status: string): string {
+  const map: Record<string, string> = {
+    PAID: 'Paid',
+    PARTIAL: 'Partially paid',
+    UNPAID: 'Unpaid',
+  };
+  return map[status] ?? status;
+}
+
+function truncate(text: string, max: number): string {
+  if (text.length <= max) return text;
+  return `${text.slice(0, Math.max(0, max - 1))}…`;
+}
+
 export function buildWhatsAppInvoiceMessage(input: WhatsAppInvoiceInput): string {
-  const lines = input.lines.slice(0, 12).map((l, i) => {
-    const label = l.name.length > 40 ? `${l.name.slice(0, 37)}…` : l.name;
-    return `${i + 1}. ${label} (${l.sku}) x${l.qty} = ₹${l.lineTotal.toFixed(2)}`;
+  const MAX_LINES = 12;
+  const itemBlocks = input.lines.slice(0, MAX_LINES).map((l, i) => {
+    const name = truncate(l.name, 48);
+    const sku = truncate(l.sku, 28);
+    return [`${i + 1}. ${name}`, `   ${sku}  × ${l.qty}`, `   ₹${formatInr(l.lineTotal)}`].join(
+      '\n',
+    );
   });
   const more =
-    input.lines.length > 12 ? `\n… +${input.lines.length - 12} more items` : '';
+    input.lines.length > MAX_LINES
+      ? `\n… +${input.lines.length - MAX_LINES} more item${
+          input.lines.length - MAX_LINES === 1 ? '' : 's'
+        }`
+      : '';
 
   const parts = [
     `*${input.shopName}*`,
-    `Tax Invoice: ${input.invoiceNo}`,
-    `Date: ${input.invoiceDate}`,
+    'Tax Invoice',
+    '',
+    `*${input.invoiceNo}*`,
+    `Date: ${formatInvoiceDate(input.invoiceDate)}`,
     `Customer: ${input.customerName}`,
     '',
-    'Items:',
-    ...lines,
-    more,
+    '────────',
+    '*Items*',
+    ...itemBlocks,
+    more.trimEnd() ? more.trimStart() : null,
+    '────────',
+    `Taxable:  ₹${formatInr(input.taxable)}`,
+    `CGST:     ₹${formatInr(input.cgst)}`,
+    `SGST:     ₹${formatInr(input.sgst)}`,
     '',
-    `Taxable: ₹${input.taxable.toFixed(2)}`,
-    `CGST: ₹${input.cgst.toFixed(2)}`,
-    `SGST: ₹${input.sgst.toFixed(2)}`,
-    `*Total: ₹${input.total.toFixed(2)}*`,
-    `Payment: ${input.paymentStatus}`,
+    `*Total:   ₹${formatInr(input.total)}*`,
+    `Payment: ${paymentLabel(input.paymentStatus)}`,
     '',
     'Thank you for shopping with us.',
   ];
 
-  return parts.filter((p) => p !== null).join('\n').trim();
+  return parts.filter((p): p is string => p != null && p !== '').join('\n');
 }
 
 export function buildWhatsAppShareUrl(phone: string | null, message: string): string {

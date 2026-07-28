@@ -96,7 +96,7 @@ export function OpeningStockForm({
                 id="open-qty"
                 type="number"
                 min="0.001"
-                step="1"
+                step="any"
                 value={qty}
                 onChange={(e) => setQty(e.target.value)}
                 required
@@ -227,7 +227,7 @@ export function AdjustmentForm({
                 id="adj-qty"
                 type="number"
                 min="0.001"
-                step="1"
+                step="any"
                 value={qty}
                 onChange={(e) => setQty(e.target.value)}
                 required

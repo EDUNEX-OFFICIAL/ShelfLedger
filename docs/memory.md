@@ -39,7 +39,7 @@
 
 ## WhatsApp invoice share
 
-- Invoice page: **Share on WhatsApp** opens `wa.me` with GST summary text; customer phone prefilled when present
+- Invoice page: **Share on WhatsApp** opens `wa.me` with structured GST summary (bold invoice no, en-IN date/amounts, item blocks, CGST/SGST, human payment label)
 - Copy text fallback; no WhatsApp Business API / no public unauthenticated invoice link
 
 ## UI notes
@@ -51,6 +51,7 @@
 - **Sales pass done:** `/sales` — find/post/dues first; Advanced draft collapsed; invoice date; Post→invoice; Quick Sale primary; `/sales/quick` → `#new-draft`
 - **Purchases pass done:** `/purchases` — vendor invoice # + bill date searchable; drafts-to-receive meta; form stays open (create is primary); list-first + New purchase CTA
 - **Expenses pass done:** `/expenses` — period filter (Today/30d/Month/All) + period total; log form with today default + FormField; categories collapsed; list with amount trailing + category filter; chart after list
+- **Invoice print pass:** GST tax invoice layout — seller/GSTIN/state, invoice no+date, place of supply, reverse charge No, amount in words, signatory; print CSS no longer hides document header (`header` blanket rule fixed)
 - **Reports pass done:** `/reports` — Today/7d/30d/Month + Custom; sales invoice + low-stock mobile lists; GST detail without IGST row; purchases/expenses link-out; `#low-stock` / `#sales-gst` anchors
 - **Settings pass done:** `/settings` — org FormField + address2/email; FY month select; sticky Save; VIEWER read-only profile; tax list-first + auto CGST/SGST split; sequence cards; Staff CTA
 - **Staff pass done:** `/staff` — list-first; human roles; You badge; self lock; dirty Save; role hints; Settings CTA; create form below

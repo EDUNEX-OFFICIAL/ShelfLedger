@@ -225,7 +225,7 @@ export function ExchangeForm({
                       id={`ex-ret-qty-${index}`}
                       type="number"
                       min="0.001"
-                      step="1"
+                      step="any"
                       value={line.qty}
                       onChange={(e) =>
                         setReturnLines((rows) =>
@@ -308,6 +308,7 @@ export function ExchangeForm({
                       id={`ex-rep-qty-${index}`}
                       type="number"
                       min="0.001"
+                      step="any"
                       value={line.qty}
                       onChange={(e) =>
                         setReplaceLines((rows) =>

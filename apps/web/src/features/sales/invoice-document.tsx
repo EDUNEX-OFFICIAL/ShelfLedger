@@ -1,4 +1,6 @@
+import Link from 'next/link';
 import { MoneyText } from '@/components/shared/money-text';
+import { amountInInrWords } from '@/lib/amount-in-words';
 import { POWERED_BY_LABEL, PRODUCT_URL, shopMonogram } from '@/lib/shop-branding';
 import { cn } from '@/lib/utils';
 
@@ -60,6 +62,43 @@ export type InvoiceSale = {
   }>;
 };
 
+/** Common GST state codes (V1 display). */
+const STATE_NAMES: Record<string, string> = {
+  '01': 'Jammu & Kashmir',
+  '02': 'Himachal Pradesh',
+  '03': 'Punjab',
+  '04': 'Chandigarh',
+  '05': 'Uttarakhand',
+  '06': 'Haryana',
+  '07': 'Delhi',
+  '08': 'Rajasthan',
+  '09': 'Uttar Pradesh',
+  '10': 'Bihar',
+  '11': 'Sikkim',
+  '12': 'Arunachal Pradesh',
+  '13': 'Nagaland',
+  '14': 'Manipur',
+  '15': 'Mizoram',
+  '16': 'Tripura',
+  '17': 'Meghalaya',
+  '18': 'Assam',
+  '19': 'West Bengal',
+  '20': 'Jharkhand',
+  '21': 'Odisha',
+  '22': 'Chhattisgarh',
+  '23': 'Madhya Pradesh',
+  '24': 'Gujarat',
+  '26': 'Dadra & Nagar Haveli and Daman & Diu',
+  '27': 'Maharashtra',
+  '29': 'Karnataka',
+  '30': 'Goa',
+  '32': 'Kerala',
+  '33': 'Tamil Nadu',
+  '34': 'Puducherry',
+  '36': 'Telangana',
+  '37': 'Andhra Pradesh',
+};
+
 function n(v: { toString(): string } | number) {
   return Number(v);
 }
@@ -78,6 +117,12 @@ function formatDate(d: Date) {
 
 function orgAddress(org: InvoiceSale['organization']) {
   return [org.addressLine1, org.addressLine2, org.city, org.pincode].filter(Boolean).join(', ');
+}
+
+function stateLabel(code: string | null | undefined) {
+  if (!code) return null;
+  const name = STATE_NAMES[code];
+  return name ? `${name} (${code})` : `State ${code}`;
 }
 
 function methodLabel(method: string) {
@@ -99,32 +144,12 @@ function paymentStatusLabel(status: string) {
   return map[status] ?? status;
 }
 
-/** Show Bill to only when there is something useful for the customer. */
-function shouldShowBillTo(customer: InvoiceSale['customer']) {
-  if (!customer.isWalkIn) return true;
-  return Boolean(customer.phone || customer.gstin || customer.address);
-}
-
-function billToName(customer: InvoiceSale['customer']) {
-  if (customer.isWalkIn) return null;
-  return customer.name;
-}
-
-/** Detailed payments block only when split / refs / unpaid with notes. */
-function shouldShowPaymentsBlock(sale: InvoiceSale) {
-  if (sale.payments.length > 1) return true;
-  if (sale.payments.some((p) => Boolean(p.reference))) return true;
-  return false;
-}
-
 function headerPaymentLine(sale: InvoiceSale) {
   const status = paymentStatusLabel(sale.paymentStatus);
   if (sale.payments.length === 1) {
     return `${methodLabel(sale.payments[0]!.method)} · ${status}`;
   }
-  if (sale.payments.length > 1) {
-    return status;
-  }
+  if (sale.payments.length > 1) return status;
   return status;
 }
 
@@ -134,183 +159,252 @@ export function InvoiceDocument({ sale }: { sale: InvoiceSale }) {
   const sgst = sale.lines.reduce((s, l) => s + n(l.sgstAmount), 0);
   const discount = n(sale.discountAmount);
   const address = orgAddress(org);
-  const showBillTo = shouldShowBillTo(sale.customer);
-  const customerLabel = billToName(sale.customer);
-  const showPayments = shouldShowPaymentsBlock(sale);
-  const showMetaRow = showBillTo || showPayments;
+  const placeOfSupply =
+    stateLabel(sale.placeOfSupplyState || org.stateCode) ??
+    `State ${sale.placeOfSupplyState || org.stateCode}`;
+  const sellerState = stateLabel(org.stateCode);
+  const total = n(sale.totalAmount);
+  const words = amountInInrWords(total);
+  const showPaymentsDetail =
+    sale.payments.length > 1 || sale.payments.some((p) => Boolean(p.reference));
+  const customerName = sale.customer.isWalkIn
+    ? sale.customer.phone || sale.customer.gstin
+      ? 'Walk-in customer'
+      : 'Consumer (Walk-in)'
+    : sale.customer.name;
+  const profileIncomplete = !org.gstin || !address;
 
   return (
     <article
       className={cn(
         'invoice-sheet overflow-hidden rounded-xl border border-border/80 bg-card shadow-card',
-        'print:rounded-none print:border-0 print:shadow-none',
+        'print:overflow-visible print:rounded-none print:border-0 print:shadow-none',
       )}
     >
-      <div className="h-1.5 bg-primary print:h-1" aria-hidden />
+      <div className="h-1.5 bg-primary print:hidden" aria-hidden />
 
-      <div className="p-5 sm:p-8 print:p-0">
-        <header className="flex flex-col gap-6 border-b border-border pb-6 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex min-w-0 items-start gap-3">
-            <div
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary text-sm font-bold tracking-tight text-primary-foreground"
-              aria-hidden
-            >
-              {shopMonogram(org.name)}
-            </div>
-            <div className="min-w-0">
-              <h1 className="truncate text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
-                {org.name}
-              </h1>
-              {address ? (
-                <p className="mt-1 text-sm leading-snug text-muted-foreground">{address}</p>
-              ) : null}
-              <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                {org.gstin ? (
-                  <span>
-                    GSTIN{' '}
-                    <span className="font-mono font-medium text-foreground">{org.gstin}</span>
-                  </span>
-                ) : null}
-                {org.phone ? <span>{org.phone}</span> : null}
-                {org.email ? <span className="truncate">{org.email}</span> : null}
-              </div>
-            </div>
-          </div>
-
-          <div className="shrink-0 rounded-lg border border-border bg-muted/40 px-4 py-3 sm:min-w-[13.5rem] sm:text-right print:bg-transparent">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">
+      <div className="p-5 sm:p-7 print:p-0">
+        {/* Title strip — required on GST tax invoice */}
+        <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-border pb-3">
+          <div>
+            <p className="text-lg font-semibold tracking-tight text-foreground sm:text-xl">
               Tax Invoice
             </p>
-            <p className="mt-1 font-mono text-lg font-semibold tracking-tight text-foreground">
-              {sale.invoiceNo}
+            <p className="text-[11px] text-muted-foreground print:text-[10px]">
+              Original for Recipient · CGST + SGST (same-state supply)
             </p>
-            <dl className="mt-3 space-y-1.5 text-xs">
-              <div className="flex justify-between gap-4 sm:justify-end sm:gap-6">
-                <dt className="text-muted-foreground">Date</dt>
-                <dd className="font-medium tabular-nums">{formatDate(sale.invoiceDate)}</dd>
+          </div>
+          <p className="font-mono text-sm font-semibold tabular-nums text-foreground sm:text-base">
+            {sale.invoiceNo}
+          </p>
+        </div>
+
+        {/* Seller + invoice meta */}
+        <div className="mt-4 grid gap-4 border-b border-border pb-4 sm:grid-cols-2 print:mt-3 print:gap-3 print:pb-3">
+          <section>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+              Seller
+            </p>
+            <div className="mt-2 flex items-start gap-2.5">
+              <div
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary text-xs font-bold text-primary-foreground print:border print:border-border print:bg-transparent print:text-foreground"
+                aria-hidden
+              >
+                {shopMonogram(org.name)}
               </div>
-              <div className="flex justify-between gap-4 sm:justify-end sm:gap-6">
+              <div className="min-w-0">
+                <h1 className="text-base font-semibold tracking-tight text-foreground sm:text-lg">
+                  {org.name}
+                </h1>
+                {address ? (
+                  <p className="mt-1 text-xs leading-snug text-muted-foreground">{address}</p>
+                ) : (
+                  <p className="mt-1 text-xs text-warning print:hidden">
+                    Address missing —{' '}
+                    <Link href="/settings#organization" className="underline underline-offset-2">
+                      Settings
+                    </Link>
+                  </p>
+                )}
+                <dl className="mt-2 space-y-0.5 text-xs">
+                  <div className="flex flex-wrap gap-x-1">
+                    <dt className="text-muted-foreground">GSTIN</dt>
+                    <dd className="font-mono font-medium text-foreground">
+                      {org.gstin ?? '—'}
+                    </dd>
+                  </div>
+                  {sellerState ? (
+                    <div className="flex flex-wrap gap-x-1">
+                      <dt className="text-muted-foreground">State</dt>
+                      <dd className="text-foreground">{sellerState}</dd>
+                    </div>
+                  ) : null}
+                  {org.phone ? (
+                    <div className="flex flex-wrap gap-x-1">
+                      <dt className="text-muted-foreground">Phone</dt>
+                      <dd className="text-foreground">{org.phone}</dd>
+                    </div>
+                  ) : null}
+                  {org.email ? (
+                    <div className="flex flex-wrap gap-x-1">
+                      <dt className="text-muted-foreground">Email</dt>
+                      <dd className="truncate text-foreground">{org.email}</dd>
+                    </div>
+                  ) : null}
+                  <div className="flex flex-wrap gap-x-1">
+                    <dt className="text-muted-foreground">Branch</dt>
+                    <dd className="text-foreground">{sale.branch.name}</dd>
+                  </div>
+                </dl>
+                {profileIncomplete ? (
+                  <p className="mt-2 text-[11px] text-warning print:hidden">
+                    Complete shop GSTIN &amp; address in{' '}
+                    <Link href="/settings#organization" className="underline underline-offset-2">
+                      Settings
+                    </Link>{' '}
+                    for a compliant print.
+                  </p>
+                ) : null}
+              </div>
+            </div>
+          </section>
+
+          <section className="rounded-lg border border-border/80 bg-muted/30 p-3.5 sm:justify-self-end sm:w-full sm:max-w-xs print:border print:bg-transparent">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+              Invoice details
+            </p>
+            <dl className="mt-2 space-y-1.5 text-xs">
+              <div className="flex justify-between gap-3">
+                <dt className="text-muted-foreground">Invoice no.</dt>
+                <dd className="font-mono font-semibold text-foreground">{sale.invoiceNo}</dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-muted-foreground">Invoice date</dt>
+                <dd className="font-medium tabular-nums text-foreground">
+                  {formatDate(sale.invoiceDate)}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-muted-foreground">Place of supply</dt>
+                <dd className="text-right font-medium text-foreground">{placeOfSupply}</dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-muted-foreground">Reverse charge</dt>
+                <dd className="font-medium text-foreground">No</dd>
+              </div>
+              <div className="flex justify-between gap-3">
                 <dt className="text-muted-foreground">Payment</dt>
-                <dd className="font-medium">{headerPaymentLine(sale)}</dd>
+                <dd className="text-right font-medium text-foreground">
+                  {headerPaymentLine(sale)}
+                </dd>
               </div>
             </dl>
-          </div>
-        </header>
-
-        {showMetaRow ? (
-          <section
-            className={cn(
-              'mt-6 grid gap-3',
-              showBillTo && showPayments ? 'sm:grid-cols-2' : 'sm:grid-cols-1',
-            )}
-          >
-            {showBillTo ? (
-              <div className="rounded-lg border border-border/80 bg-muted/30 p-4 print:bg-transparent">
-                <h2 className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                  Bill to
-                </h2>
-                {customerLabel ? (
-                  <p className="mt-2 text-base font-semibold text-foreground">{customerLabel}</p>
-                ) : null}
-                {sale.customer.phone ? (
-                  <p
-                    className={cn(
-                      'text-sm text-muted-foreground',
-                      customerLabel ? 'mt-1' : 'mt-2 font-semibold text-foreground',
-                    )}
-                  >
-                    {sale.customer.phone}
-                  </p>
-                ) : null}
-                {sale.customer.gstin ? (
-                  <p className="mt-1 font-mono text-xs text-muted-foreground">
-                    GSTIN {sale.customer.gstin}
-                  </p>
-                ) : null}
-                {sale.customer.address ? (
-                  <p className="mt-2 text-sm leading-snug text-muted-foreground">
-                    {sale.customer.address}
-                  </p>
-                ) : null}
-              </div>
-            ) : null}
-
-            {showPayments ? (
-              <div className="rounded-lg border border-border/80 bg-muted/30 p-4 print:bg-transparent">
-                <h2 className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                  Payments
-                </h2>
-                <ul className="mt-2 space-y-2">
-                  {sale.payments.map((p) => (
-                    <li
-                      key={p.id}
-                      className="flex items-baseline justify-between gap-3 text-sm"
-                    >
-                      <span className="text-muted-foreground">
-                        {methodLabel(p.method)}
-                        {p.reference ? (
-                          <span className="mt-0.5 block font-mono text-[11px]">{p.reference}</span>
-                        ) : null}
-                      </span>
-                      <MoneyText value={n(p.amount)} className="text-sm font-medium" />
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
           </section>
-        ) : null}
+        </div>
+
+        {/* Bill to */}
+        <section className="mt-4 grid gap-3 border-b border-border pb-4 sm:grid-cols-2 print:mt-3 print:pb-3">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+              Bill to
+            </p>
+            <p className="mt-1.5 text-sm font-semibold text-foreground">{customerName}</p>
+            {sale.customer.phone ? (
+              <p className="mt-0.5 text-xs text-muted-foreground">{sale.customer.phone}</p>
+            ) : null}
+            {sale.customer.gstin ? (
+              <p className="mt-0.5 font-mono text-xs text-foreground">
+                GSTIN {sale.customer.gstin}
+              </p>
+            ) : (
+              <p className="mt-0.5 text-xs text-muted-foreground">GSTIN — (unregistered)</p>
+            )}
+            {sale.customer.address ? (
+              <p className="mt-1 text-xs leading-snug text-muted-foreground">
+                {sale.customer.address}
+              </p>
+            ) : null}
+            {sale.customer.stateCode ? (
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                State {stateLabel(sale.customer.stateCode)}
+              </p>
+            ) : null}
+          </div>
+
+          {showPaymentsDetail ? (
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                Payments
+              </p>
+              <ul className="mt-1.5 space-y-1.5">
+                {sale.payments.map((p) => (
+                  <li key={p.id} className="flex items-baseline justify-between gap-3 text-xs">
+                    <span className="text-muted-foreground">
+                      {methodLabel(p.method)}
+                      {p.reference ? (
+                        <span className="mt-0.5 block font-mono text-[11px]">{p.reference}</span>
+                      ) : null}
+                    </span>
+                    <MoneyText value={n(p.amount)} className="text-xs font-medium" />
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </section>
 
         {/* Desktop / print table */}
-        <div className="mt-8 hidden overflow-x-auto md:block print:block">
-          <table className="w-full border-collapse text-left text-sm">
+        <div className="mt-5 hidden overflow-x-auto md:block print:mt-3 print:block">
+          <table className="w-full border-collapse text-left text-[13px] print:text-[11px]">
             <thead>
-              <tr className="border-b-2 border-border text-[11px] uppercase tracking-wide text-muted-foreground">
-                <th className="py-2.5 pr-3 font-semibold">#</th>
-                <th className="py-2.5 pr-3 font-semibold">Item</th>
-                <th className="py-2.5 pr-3 font-semibold">HSN</th>
-                <th className="py-2.5 pr-3 text-right font-semibold">Qty</th>
-                <th className="py-2.5 pr-3 text-right font-semibold">Rate</th>
-                <th className="py-2.5 pr-3 text-right font-semibold">Taxable</th>
-                <th className="py-2.5 pr-3 text-right font-semibold">CGST</th>
-                <th className="py-2.5 pr-3 text-right font-semibold">SGST</th>
-                <th className="py-2.5 text-right font-semibold">Total</th>
+              <tr className="border-b-2 border-foreground/80 text-[10px] uppercase tracking-wide text-muted-foreground">
+                <th className="py-2 pr-2 font-semibold">#</th>
+                <th className="py-2 pr-2 font-semibold">Description</th>
+                <th className="py-2 pr-2 font-semibold">HSN</th>
+                <th className="py-2 pr-2 text-right font-semibold">Qty</th>
+                <th className="py-2 pr-2 text-right font-semibold">Rate</th>
+                <th className="py-2 pr-2 text-right font-semibold">Taxable</th>
+                <th className="py-2 pr-2 text-right font-semibold">CGST</th>
+                <th className="py-2 pr-2 text-right font-semibold">SGST</th>
+                <th className="py-2 text-right font-semibold">Amount</th>
               </tr>
             </thead>
             <tbody>
               {sale.lines.map((line, idx) => (
-                <tr key={line.id} className="border-b border-border/70 align-top">
-                  <td className="py-3 pr-3 tabular-nums text-muted-foreground">{idx + 1}</td>
-                  <td className="py-3 pr-3">
+                <tr key={line.id} className="border-b border-border/80 align-top">
+                  <td className="py-2.5 pr-2 tabular-nums text-muted-foreground">{idx + 1}</td>
+                  <td className="py-2.5 pr-2">
                     <span className="font-medium text-foreground">
                       {line.variant.article.name}
                     </span>
                     {line.variant.article.brand?.name ? (
-                      <span className="mt-0.5 block text-xs text-muted-foreground">
+                      <span className="mt-0.5 block text-[11px] text-muted-foreground">
                         {line.variant.article.brand.name}
                       </span>
                     ) : null}
-                    <span className="mt-0.5 block font-mono text-[11px] text-muted-foreground">
+                    <span className="mt-0.5 block font-mono text-[10px] text-muted-foreground">
                       {line.variant.sku} · {line.variant.size}/{line.variant.color}
                     </span>
                   </td>
-                  <td className="py-3 pr-3 font-mono text-xs">{line.hsnCode ?? '—'}</td>
-                  <td className="py-3 pr-3 text-right tabular-nums">{n(line.qty)}</td>
-                  <td className="py-3 pr-3 text-right tabular-nums">₹{money(line.unitPrice)}</td>
-                  <td className="py-3 pr-3 text-right tabular-nums">₹{money(line.taxableAmount)}</td>
-                  <td className="py-3 pr-3 text-right tabular-nums">
+                  <td className="py-2.5 pr-2 font-mono text-xs">{line.hsnCode ?? '—'}</td>
+                  <td className="py-2.5 pr-2 text-right tabular-nums">{n(line.qty)}</td>
+                  <td className="py-2.5 pr-2 text-right tabular-nums">₹{money(line.unitPrice)}</td>
+                  <td className="py-2.5 pr-2 text-right tabular-nums">
+                    ₹{money(line.taxableAmount)}
+                  </td>
+                  <td className="py-2.5 pr-2 text-right tabular-nums">
                     ₹{money(line.cgstAmount)}
                     <span className="mt-0.5 block text-[10px] text-muted-foreground">
                       @{n(line.cgstRate)}%
                     </span>
                   </td>
-                  <td className="py-3 pr-3 text-right tabular-nums">
+                  <td className="py-2.5 pr-2 text-right tabular-nums">
                     ₹{money(line.sgstAmount)}
                     <span className="mt-0.5 block text-[10px] text-muted-foreground">
                       @{n(line.sgstRate)}%
                     </span>
                   </td>
-                  <td className="py-3 text-right font-medium tabular-nums">
+                  <td className="py-2.5 text-right font-medium tabular-nums">
                     ₹{money(line.lineTotal)}
                   </td>
                 </tr>
@@ -320,8 +414,8 @@ export function InvoiceDocument({ sale }: { sale: InvoiceSale }) {
         </div>
 
         {/* Mobile line cards */}
-        <div className="mt-6 space-y-3 md:hidden print:hidden">
-          <h2 className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+        <div className="mt-5 space-y-3 md:hidden print:hidden">
+          <h2 className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
             Line items
           </h2>
           {sale.lines.map((line, idx) => (
@@ -367,18 +461,27 @@ export function InvoiceDocument({ sale }: { sale: InvoiceSale }) {
           ))}
         </div>
 
-        <footer className="mt-8 flex flex-col gap-6 border-t border-border pt-6 sm:flex-row sm:justify-between">
-          <div className="max-w-sm space-y-2 text-xs text-muted-foreground">
-            <p>This is a computer-generated tax invoice.</p>
+        {/* Totals + amount in words */}
+        <div className="mt-5 grid gap-4 border-t border-border pt-4 sm:grid-cols-[1fr_auto] print:mt-3 print:pt-3">
+          <div className="space-y-3 text-xs text-muted-foreground">
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.12em]">
+                Amount in words
+              </p>
+              <p className="mt-1 text-sm font-medium leading-snug text-foreground">{words}</p>
+            </div>
             {sale.notes ? (
               <p>
                 <span className="font-medium text-foreground">Notes: </span>
                 {sale.notes}
               </p>
             ) : null}
+            <p className="print:text-[10px]">
+              This is a computer-generated tax invoice. No signature required if digitally issued.
+            </p>
           </div>
 
-          <dl className="w-full space-y-2 rounded-lg border border-border bg-muted/30 p-4 text-sm sm:w-72 print:bg-transparent">
+          <dl className="w-full space-y-1.5 rounded-lg border border-border bg-muted/30 p-3.5 text-sm sm:w-64 print:border print:bg-transparent">
             <div className="flex justify-between gap-4">
               <dt className="text-muted-foreground">Taxable value</dt>
               <dd>
@@ -411,22 +514,31 @@ export function InvoiceDocument({ sale }: { sale: InvoiceSale }) {
                 </dd>
               </div>
             ) : null}
-            <div className="flex justify-between gap-4 border-t border-border pt-3 text-base font-semibold text-foreground">
+            <div className="flex justify-between gap-4 border-t border-border pt-2.5 text-base font-semibold text-foreground">
               <dt>Grand total</dt>
-              <dd className="text-primary">
-                <MoneyText value={n(sale.totalAmount)} className="text-base font-semibold" />
+              <dd>
+                <MoneyText value={total} className="text-base font-semibold" />
               </dd>
             </div>
           </dl>
-        </footer>
+        </div>
 
-        <p className="mt-8 text-center text-[11px] text-muted-foreground">
+        {/* Signatory */}
+        <div className="mt-8 flex justify-end print:mt-10">
+          <div className="w-44 text-center text-xs">
+            <div className="mb-10 border-b border-border print:mb-12" />
+            <p className="font-medium text-foreground">Authorised signatory</p>
+            <p className="mt-0.5 text-muted-foreground">For {org.name}</p>
+          </div>
+        </div>
+
+        <p className="mt-6 text-center text-[11px] text-muted-foreground print:mt-4 print:text-[9px]">
           Thank you for your business · Powered by{' '}
           <a
             href={PRODUCT_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="font-medium text-primary underline underline-offset-2 print:text-foreground"
+            className="font-medium text-primary underline underline-offset-2 print:text-foreground print:no-underline"
           >
             {POWERED_BY_LABEL}
           </a>

@@ -86,7 +86,7 @@ export default async function ExpensesPage({
         title="Expenses"
         description="Shop costs only — rent, utilities, petty cash. Does not touch inventory."
         actions={
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:items-end">
+          <div className="flex w-full flex-col items-start gap-2 sm:w-auto sm:items-end">
             {canWrite ? (
               <a href="#new-expense" className={buttonClassName({ size: 'lg' })}>
                 <Wallet className="h-4 w-4" strokeWidth={1.75} aria-hidden />

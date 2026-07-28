@@ -31,7 +31,10 @@ export function TopBar({
   const labelId = useId();
 
   return (
-    <header className="z-20 flex h-14 shrink-0 items-center gap-2.5 border-b border-border/80 bg-card/85 px-3 backdrop-blur-md print:hidden sm:gap-3 md:px-8">
+    <header
+      data-app-chrome
+      className="z-20 flex h-14 shrink-0 items-center gap-2.5 border-b border-border/80 bg-card/85 px-3 backdrop-blur-md print:hidden sm:gap-3 md:px-8"
+    >
       {/* Mobile brand — desktop already has sidebar wordmark */}
       <Link
         href="/sales/quick"

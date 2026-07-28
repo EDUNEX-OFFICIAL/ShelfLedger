@@ -124,7 +124,7 @@ export function ReturnPurchaseButton({
             id="return-qty"
             type="number"
             min="0.001"
-            step="1"
+            step="any"
             max={selected?.qty}
             value={qty}
             onChange={(e) => setQty(e.target.value)}

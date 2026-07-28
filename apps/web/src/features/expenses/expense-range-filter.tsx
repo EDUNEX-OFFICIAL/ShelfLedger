@@ -20,6 +20,7 @@ export function ExpenseRangeFilter({ range }: { range: ExpenseRange }) {
       value={range}
       options={RANGE_OPTIONS}
       size="sm"
+      className="w-fit shrink-0"
       onChange={(value) => {
         if (value === 'month') {
           router.push('/expenses');

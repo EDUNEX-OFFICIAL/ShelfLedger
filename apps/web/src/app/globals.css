@@ -226,8 +226,9 @@
     color: #111 !important;
   }
 
+  /* App chrome only — do NOT hide invoice document headers */
   aside,
-  header,
+  header[data-app-chrome],
   nav[aria-label='Primary'],
   [data-toast-root] {
     display: none !important;
@@ -243,9 +244,32 @@
   .invoice-sheet {
     box-shadow: none !important;
     border: none !important;
+    border-radius: 0 !important;
+  }
+
+  .invoice-sheet * {
+    color: #111 !important;
+    box-shadow: none !important;
+  }
+
+  .invoice-sheet .text-primary,
+  .invoice-sheet .text-muted-foreground {
+    color: #111 !important;
+  }
+
+  .invoice-sheet .bg-muted\/40,
+  .invoice-sheet .bg-muted\/30,
+  .invoice-sheet .bg-muted\/20,
+  .invoice-sheet .bg-primary {
+    background: transparent !important;
   }
 
   a[href]::after {
     content: none !important;
+  }
+
+  @page {
+    size: A4;
+    margin: 12mm;
   }
 }

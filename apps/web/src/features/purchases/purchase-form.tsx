@@ -185,7 +185,7 @@ export function PurchaseForm({
                     id={`po-qty-${index}`}
                     type="number"
                     min="0.001"
-                    step="1"
+                    step="any"
                     value={line.qty}
                     onChange={(e) =>
                       setLines((rows) =>

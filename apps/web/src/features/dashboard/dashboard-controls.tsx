@@ -51,6 +51,7 @@ export function DashboardRangeFilter({ range }: { range: DashboardRange }) {
       value={range}
       options={RANGE_OPTIONS}
       size="sm"
+      className="w-fit shrink-0"
       onChange={(value) => {
         const qs = new URLSearchParams({ range: value });
         router.push(`/dashboard?${qs.toString()}`);

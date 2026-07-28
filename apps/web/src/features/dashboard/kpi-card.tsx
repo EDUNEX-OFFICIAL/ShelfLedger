@@ -20,11 +20,13 @@ const iconToneClass: Record<StatusTone, string> = {
   alert: 'text-destructive',
 };
 
+/** Inset accent bar — keeps outer width identical to neutral cards. */
 const surfaceToneClass: Record<StatusTone, string> = {
   neutral: '',
   good: '',
-  warn: 'border-l-4 border-l-warning bg-warning/[0.04]',
-  alert: 'border-l-4 border-l-destructive bg-destructive/[0.04]',
+  warn: 'relative bg-warning/[0.04] before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:rounded-l-[inherit] before:bg-warning',
+  alert:
+    'relative bg-destructive/[0.04] before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:rounded-l-[inherit] before:bg-destructive',
 };
 
 export function KpiCard({
@@ -34,7 +36,7 @@ export function KpiCard({
   value,
   status,
   statusTone = 'neutral',
-  emphasis = false,
+  emphasis: _emphasis = false,
 }: {
   title: string;
   href: string;
@@ -42,27 +44,26 @@ export function KpiCard({
   value: ReactNode;
   status: string;
   statusTone?: StatusTone;
-  /** Slightly larger value — use for primary sales KPI. */
+  /** Kept for call-site compat; value size is unified across KPI cards. */
   emphasis?: boolean;
 }) {
   return (
-    <Link href={href} className="group block">
+    <Link href={href} className="group flex h-full min-w-0">
       <SurfaceCard
         padding="md"
         interactive
         className={cn(
-          'flex min-h-[8.75rem] flex-col active:translate-y-0',
+          'flex h-full w-full min-w-0 flex-col active:translate-y-0',
           surfaceToneClass[statusTone],
         )}
       >
-        <div className="flex items-start justify-between gap-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+        <div className="flex items-start justify-between gap-2">
+          <p className="min-w-0 truncate text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
             {title}
           </p>
           <Icon
             className={cn(
-              'mt-0.5 shrink-0 transition-colors',
-              statusTone === 'alert' || statusTone === 'warn' ? 'h-5 w-5' : 'h-4 w-4',
+              'mt-0.5 h-4 w-4 shrink-0 transition-colors',
               iconToneClass[statusTone],
             )}
             strokeWidth={1.75}
@@ -72,22 +73,22 @@ export function KpiCard({
 
         <div
           className={cn(
-            'mt-auto pt-4 font-semibold leading-none tracking-tight text-foreground',
-            emphasis ? 'text-[1.625rem] md:text-[1.875rem]' : 'text-2xl md:text-[1.75rem]',
+            'mt-auto flex min-h-[2.5rem] items-end pt-4 font-semibold leading-none tracking-tight text-foreground',
+            'text-[1.625rem] md:text-[1.75rem]',
           )}
         >
-          {value}
+          <div className="min-w-0 overflow-hidden">{value}</div>
         </div>
 
         <p
           className={cn(
-            'mt-3 flex items-center gap-1.5 text-xs font-medium',
+            'mt-3 line-clamp-2 min-h-[2.5rem] text-xs font-medium leading-snug',
             statusToneClass[statusTone],
           )}
         >
           <span
             className={cn(
-              'inline-block h-1.5 w-1.5 shrink-0 rounded-full',
+              'mb-0.5 mr-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full align-middle',
               statusTone === 'good' && 'bg-success',
               statusTone === 'warn' && 'bg-warning',
               statusTone === 'alert' && 'bg-destructive',
@@ -114,11 +115,11 @@ export function MasterStatCard({
   value: number;
 }) {
   return (
-    <Link href={href} className="group block">
+    <Link href={href} className="group flex h-full min-w-0">
       <SurfaceCard
         padding="sm"
         interactive
-        className="flex flex-col border-border/70 bg-card/70"
+        className="flex h-full w-full flex-col border-border/70 bg-card/70"
       >
         <div className="flex items-center justify-between gap-2">
           <p className="text-[11px] font-medium text-muted-foreground">{title}</p>
