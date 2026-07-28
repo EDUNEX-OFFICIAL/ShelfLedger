@@ -55,19 +55,27 @@ export function ExchangesList({
         ) : undefined
       }
       mobileTitle={(r) => r.customerName}
-      mobileMeta={(r) => `${r.invoiceNo} · ${r.status}`}
+      mobileMeta={(r) => r.invoiceNo}
+      mobileTrailing={(r) => <StatusBadge status={r.status} />}
       columns={[
         {
           id: 'customer',
           header: 'Customer',
+          mobile: false,
           cell: (r) => <span className="font-medium">{r.customerName}</span>,
         },
         {
           id: 'invoice',
           header: 'Original invoice',
+          mobile: false,
           cell: (r) => <span className="font-mono text-xs">{r.invoiceNo}</span>,
         },
-        { id: 'status', header: 'Status', cell: (r) => <StatusBadge status={r.status} /> },
+        {
+          id: 'status',
+          header: 'Status',
+          mobile: false,
+          cell: (r) => <StatusBadge status={r.status} />,
+        },
         {
           id: 'diff',
           header: 'Difference',

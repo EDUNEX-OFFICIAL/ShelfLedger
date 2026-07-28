@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -27,6 +28,7 @@ type Org = {
 type Seq = { id: string; docType: string; fyLabel: string; prefix: string; nextNumber: number };
 
 export function OrgSettingsForm({ canWrite, org }: { canWrite: boolean; org: Org }) {
+  const router = useRouter();
   const [form, setForm] = useState({
     name: org.name,
     gstin: org.gstin ?? '',
@@ -69,8 +71,9 @@ export function OrgSettingsForm({ canWrite, org }: { canWrite: boolean; org: Org
               return;
             }
             setMessage(
-              'Organization saved. New invoices use updated GSTIN/state; past invoices unchanged.',
+              'Shop saved. Name updates on sidebar, login, invoices, and browser title.',
             );
+            router.refresh();
           });
         }}
       >

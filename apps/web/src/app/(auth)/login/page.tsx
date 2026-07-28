@@ -1,7 +1,22 @@
+import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import { LoginForm } from '@/features/auth/login-form';
+import { getShopBranding } from '@/server/branding';
+import { SHOP_TAGLINE } from '@/lib/shop-branding';
 
-export default function LoginPage() {
+export const dynamic = 'force-dynamic';
+
+export async function generateMetadata(): Promise<Metadata> {
+  const shop = await getShopBranding();
+  return {
+    title: `Sign in · ${shop.name}`,
+    description: `${shop.name} — staff sign in`,
+  };
+}
+
+export default async function LoginPage() {
+  const shop = await getShopBranding();
+
   return (
     <main className="relative flex min-h-svh items-center justify-center overflow-hidden px-4 py-8">
       <div className="absolute inset-0 bg-sidebar" aria-hidden />
@@ -16,11 +31,13 @@ export default function LoginPage() {
       <div className="relative w-full max-w-md rounded-xl border border-border/80 bg-card p-6 shadow-card sm:p-8">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-sm font-bold tracking-tight text-primary-foreground shadow-sm">
-            SL
+            {shop.monogram}
           </div>
-          <div>
-            <p className="text-base font-semibold tracking-tight text-foreground">ShelfLedger</p>
-            <p className="text-xs text-muted-foreground">Inventory &amp; GST billing</p>
+          <div className="min-w-0">
+            <p className="truncate text-base font-semibold tracking-tight text-foreground">
+              {shop.name}
+            </p>
+            <p className="text-xs text-muted-foreground">{SHOP_TAGLINE}</p>
           </div>
         </div>
         <h1 className="mt-6 text-2xl font-semibold tracking-tight text-foreground">Sign in</h1>

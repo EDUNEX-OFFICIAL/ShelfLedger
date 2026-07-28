@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import { LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { SHOP_TAGLINE } from '@/lib/shop-branding';
 import {
   isNavActive,
   navGroups,
@@ -12,7 +13,17 @@ import {
   visibleLink,
 } from '@/components/layout/nav-config';
 
-export function AppSidebar({ role, userName }: { role: string; userName: string }) {
+export function AppSidebar({
+  role,
+  userName,
+  shopName,
+  shopMonogram,
+}: {
+  role: string;
+  userName: string;
+  shopName: string;
+  shopMonogram: string;
+}) {
   const pathname = usePathname();
   const { canStaff, canReports, canSettings } = roleFlags(role);
 
@@ -24,14 +35,14 @@ export function AppSidebar({ role, userName }: { role: string; userName: string 
             className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-sm font-bold tracking-tight text-primary-foreground shadow-sm"
             aria-hidden
           >
-            SL
+            {shopMonogram}
           </div>
           <div className="min-w-0">
             <p className="truncate text-[15px] font-semibold tracking-tight text-sidebar-foreground">
-              ShelfLedger
+              {shopName}
             </p>
             <p className="truncate text-[11px] text-[hsl(var(--sidebar-muted))]">
-              Inventory & GST billing
+              {SHOP_TAGLINE}
             </p>
           </div>
         </div>

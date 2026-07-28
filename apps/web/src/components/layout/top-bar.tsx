@@ -16,10 +16,14 @@ function initialsFromName(name: string) {
 export function TopBar({
   userName,
   role,
+  shopName,
+  shopMonogram,
   onSearchClick,
 }: {
   userName: string;
   role: string;
+  shopName: string;
+  shopMonogram: string;
   onSearchClick: () => void;
 }) {
   const [profileOpen, setProfileOpen] = useState(false);
@@ -32,10 +36,10 @@ export function TopBar({
       <Link
         href="/sales/quick"
         className="flex shrink-0 items-center gap-2 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring md:hidden"
-        aria-label="ShelfLedger home"
+        aria-label={`${shopName} home`}
       >
         <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-xs font-bold tracking-tight text-primary-foreground shadow-sm">
-          SL
+          {shopMonogram}
         </span>
       </Link>
 

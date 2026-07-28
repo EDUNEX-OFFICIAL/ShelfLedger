@@ -78,19 +78,27 @@ export function SalesList({
       }
       mobileTitle={(r) => r.invoiceLabel}
       mobileMeta={(r) => r.customerName}
+      mobileTrailing={(r) => <StatusBadge status={r.paymentStatus} />}
       columns={[
         {
           id: 'invoice',
           header: 'Invoice',
+          mobile: false,
           cell: (r) => <span className="font-mono text-xs">{r.invoiceLabel}</span>,
         },
         {
           id: 'customer',
           header: 'Customer',
+          mobile: false,
           cell: (r) => <span className="font-medium">{r.customerName}</span>,
         },
         { id: 'status', header: 'Status', cell: (r) => <StatusBadge status={r.status} /> },
-        { id: 'payment', header: 'Payment', cell: (r) => <StatusBadge status={r.paymentStatus} /> },
+        {
+          id: 'payment',
+          header: 'Payment',
+          mobile: false,
+          cell: (r) => <StatusBadge status={r.paymentStatus} />,
+        },
         {
           id: 'total',
           header: 'Total',

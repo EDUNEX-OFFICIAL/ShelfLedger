@@ -92,6 +92,8 @@ export async function updateOrgSettingsAction(input: unknown): Promise<ActionRes
     const data = orgSettingsSchema.parse(input);
     await settingsService.updateOrg(user, data);
     revalidatePath('/settings');
+    revalidatePath('/login');
+    revalidatePath('/', 'layout');
     return ok(undefined);
   } catch (error) {
     return fail(error);

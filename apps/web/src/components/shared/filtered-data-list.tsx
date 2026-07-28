@@ -12,6 +12,7 @@ export function FilteredDataList<T extends { id: string }>({
   columns,
   mobileTitle,
   mobileMeta,
+  mobileTrailing,
   actions,
   searchPlaceholder,
   searchFn,
@@ -25,6 +26,7 @@ export function FilteredDataList<T extends { id: string }>({
   columns: DataColumn<T>[];
   mobileTitle: (row: T) => ReactNode;
   mobileMeta?: (row: T) => ReactNode;
+  mobileTrailing?: (row: T) => ReactNode;
   actions?: (row: T) => ReactNode;
   searchPlaceholder?: string;
   searchFn: (row: T, q: string) => boolean;
@@ -92,6 +94,7 @@ export function FilteredDataList<T extends { id: string }>({
         columns={columns}
         mobileTitle={mobileTitle}
         mobileMeta={mobileMeta}
+        mobileTrailing={mobileTrailing}
         actions={actions}
         isFiltered={hasActive}
         emptyTitle={emptyTitle}

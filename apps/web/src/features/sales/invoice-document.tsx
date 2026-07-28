@@ -1,5 +1,5 @@
-import { StatusBadge } from '@/components/ui/badge';
 import { MoneyText } from '@/components/shared/money-text';
+import { POWERED_BY_LABEL, PRODUCT_URL, shopMonogram } from '@/lib/shop-branding';
 import { cn } from '@/lib/utils';
 
 export type InvoiceSale = {
@@ -31,6 +31,7 @@ export type InvoiceSale = {
     gstin: string | null;
     address: string | null;
     stateCode: string | null;
+    isWalkIn?: boolean;
   };
   lines: Array<{
     id: string;
@@ -79,10 +80,52 @@ function orgAddress(org: InvoiceSale['organization']) {
   return [org.addressLine1, org.addressLine2, org.city, org.pincode].filter(Boolean).join(', ');
 }
 
-function monogram(name: string) {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length >= 2) return `${parts[0]![0] ?? ''}${parts[1]![0] ?? ''}`.toUpperCase();
-  return name.slice(0, 2).toUpperCase() || 'SL';
+function methodLabel(method: string) {
+  const map: Record<string, string> = {
+    CASH: 'Cash',
+    UPI: 'UPI',
+    CARD: 'Card',
+    OTHER: 'Other',
+  };
+  return map[method] ?? method;
+}
+
+function paymentStatusLabel(status: string) {
+  const map: Record<string, string> = {
+    PAID: 'Paid',
+    PARTIAL: 'Partial',
+    UNPAID: 'Unpaid',
+  };
+  return map[status] ?? status;
+}
+
+/** Show Bill to only when there is something useful for the customer. */
+function shouldShowBillTo(customer: InvoiceSale['customer']) {
+  if (!customer.isWalkIn) return true;
+  return Boolean(customer.phone || customer.gstin || customer.address);
+}
+
+function billToName(customer: InvoiceSale['customer']) {
+  if (customer.isWalkIn) return null;
+  return customer.name;
+}
+
+/** Detailed payments block only when split / refs / unpaid with notes. */
+function shouldShowPaymentsBlock(sale: InvoiceSale) {
+  if (sale.payments.length > 1) return true;
+  if (sale.payments.some((p) => Boolean(p.reference))) return true;
+  return false;
+}
+
+function headerPaymentLine(sale: InvoiceSale) {
+  const status = paymentStatusLabel(sale.paymentStatus);
+  if (sale.payments.length === 1) {
+    return `${methodLabel(sale.payments[0]!.method)} · ${status}`;
+  }
+  if (sale.payments.length > 1) {
+    return status;
+  }
+  return status;
 }
 
 export function InvoiceDocument({ sale }: { sale: InvoiceSale }) {
@@ -91,6 +134,10 @@ export function InvoiceDocument({ sale }: { sale: InvoiceSale }) {
   const sgst = sale.lines.reduce((s, l) => s + n(l.sgstAmount), 0);
   const discount = n(sale.discountAmount);
   const address = orgAddress(org);
+  const showBillTo = shouldShowBillTo(sale.customer);
+  const customerLabel = billToName(sale.customer);
+  const showPayments = shouldShowPaymentsBlock(sale);
+  const showMetaRow = showBillTo || showPayments;
 
   return (
     <article
@@ -108,7 +155,7 @@ export function InvoiceDocument({ sale }: { sale: InvoiceSale }) {
               className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary text-sm font-bold tracking-tight text-primary-foreground"
               aria-hidden
             >
-              {monogram(org.name)}
+              {shopMonogram(org.name)}
             </div>
             <div className="min-w-0">
               <h1 className="truncate text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
@@ -124,13 +171,9 @@ export function InvoiceDocument({ sale }: { sale: InvoiceSale }) {
                     <span className="font-mono font-medium text-foreground">{org.gstin}</span>
                   </span>
                 ) : null}
-                <span>
-                  State <span className="font-mono font-medium text-foreground">{org.stateCode}</span>
-                </span>
                 {org.phone ? <span>{org.phone}</span> : null}
                 {org.email ? <span className="truncate">{org.email}</span> : null}
               </div>
-              <p className="mt-1 text-xs text-muted-foreground">Branch: {sale.branch.name}</p>
             </div>
           </div>
 
@@ -147,73 +190,76 @@ export function InvoiceDocument({ sale }: { sale: InvoiceSale }) {
                 <dd className="font-medium tabular-nums">{formatDate(sale.invoiceDate)}</dd>
               </div>
               <div className="flex justify-between gap-4 sm:justify-end sm:gap-6">
-                <dt className="text-muted-foreground">Supply</dt>
-                <dd className="font-medium">
-                  {sale.placeOfSupplyState} · intra-state
-                </dd>
-              </div>
-              <div className="flex items-center justify-between gap-4 sm:justify-end sm:gap-6">
                 <dt className="text-muted-foreground">Payment</dt>
-                <dd>
-                  <StatusBadge status={sale.paymentStatus} />
-                </dd>
+                <dd className="font-medium">{headerPaymentLine(sale)}</dd>
               </div>
             </dl>
           </div>
         </header>
 
-        <section className="mt-6 grid gap-3 sm:grid-cols-2">
-          <div className="rounded-lg border border-border/80 bg-muted/30 p-4 print:bg-transparent">
-            <h2 className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              Bill to
-            </h2>
-            <p className="mt-2 text-base font-semibold text-foreground">{sale.customer.name}</p>
-            {sale.customer.phone ? (
-              <p className="mt-1 text-sm text-muted-foreground">{sale.customer.phone}</p>
-            ) : null}
-            {sale.customer.gstin ? (
-              <p className="mt-1 font-mono text-xs text-muted-foreground">
-                GSTIN {sale.customer.gstin}
-              </p>
-            ) : null}
-            {sale.customer.stateCode ? (
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                State {sale.customer.stateCode}
-              </p>
-            ) : null}
-            {sale.customer.address ? (
-              <p className="mt-2 text-sm leading-snug text-muted-foreground">
-                {sale.customer.address}
-              </p>
-            ) : null}
-          </div>
-
-          <div className="rounded-lg border border-border/80 bg-muted/30 p-4 print:bg-transparent">
-            <h2 className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              Payments
-            </h2>
-            {sale.payments.length === 0 ? (
-              <p className="mt-2 text-sm text-muted-foreground">No payments recorded</p>
-            ) : (
-              <ul className="mt-2 space-y-2">
-                {sale.payments.map((p) => (
-                  <li
-                    key={p.id}
-                    className="flex items-baseline justify-between gap-3 text-sm"
-                  >
-                    <span className="text-muted-foreground">
-                      {p.method}
-                      {p.reference ? (
-                        <span className="mt-0.5 block font-mono text-[11px]">{p.reference}</span>
-                      ) : null}
-                    </span>
-                    <MoneyText value={n(p.amount)} className="text-sm font-medium" />
-                  </li>
-                ))}
-              </ul>
+        {showMetaRow ? (
+          <section
+            className={cn(
+              'mt-6 grid gap-3',
+              showBillTo && showPayments ? 'sm:grid-cols-2' : 'sm:grid-cols-1',
             )}
-          </div>
-        </section>
+          >
+            {showBillTo ? (
+              <div className="rounded-lg border border-border/80 bg-muted/30 p-4 print:bg-transparent">
+                <h2 className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                  Bill to
+                </h2>
+                {customerLabel ? (
+                  <p className="mt-2 text-base font-semibold text-foreground">{customerLabel}</p>
+                ) : null}
+                {sale.customer.phone ? (
+                  <p
+                    className={cn(
+                      'text-sm text-muted-foreground',
+                      customerLabel ? 'mt-1' : 'mt-2 font-semibold text-foreground',
+                    )}
+                  >
+                    {sale.customer.phone}
+                  </p>
+                ) : null}
+                {sale.customer.gstin ? (
+                  <p className="mt-1 font-mono text-xs text-muted-foreground">
+                    GSTIN {sale.customer.gstin}
+                  </p>
+                ) : null}
+                {sale.customer.address ? (
+                  <p className="mt-2 text-sm leading-snug text-muted-foreground">
+                    {sale.customer.address}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+
+            {showPayments ? (
+              <div className="rounded-lg border border-border/80 bg-muted/30 p-4 print:bg-transparent">
+                <h2 className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                  Payments
+                </h2>
+                <ul className="mt-2 space-y-2">
+                  {sale.payments.map((p) => (
+                    <li
+                      key={p.id}
+                      className="flex items-baseline justify-between gap-3 text-sm"
+                    >
+                      <span className="text-muted-foreground">
+                        {methodLabel(p.method)}
+                        {p.reference ? (
+                          <span className="mt-0.5 block font-mono text-[11px]">{p.reference}</span>
+                        ) : null}
+                      </span>
+                      <MoneyText value={n(p.amount)} className="text-sm font-medium" />
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </section>
+        ) : null}
 
         {/* Desktop / print table */}
         <div className="mt-8 hidden overflow-x-auto md:block print:block">
@@ -250,22 +296,22 @@ export function InvoiceDocument({ sale }: { sale: InvoiceSale }) {
                   </td>
                   <td className="py-3 pr-3 font-mono text-xs">{line.hsnCode ?? '—'}</td>
                   <td className="py-3 pr-3 text-right tabular-nums">{n(line.qty)}</td>
-                  <td className="py-3 pr-3 text-right tabular-nums">{money(line.unitPrice)}</td>
-                  <td className="py-3 pr-3 text-right tabular-nums">{money(line.taxableAmount)}</td>
+                  <td className="py-3 pr-3 text-right tabular-nums">₹{money(line.unitPrice)}</td>
+                  <td className="py-3 pr-3 text-right tabular-nums">₹{money(line.taxableAmount)}</td>
                   <td className="py-3 pr-3 text-right tabular-nums">
-                    {money(line.cgstAmount)}
+                    ₹{money(line.cgstAmount)}
                     <span className="mt-0.5 block text-[10px] text-muted-foreground">
                       @{n(line.cgstRate)}%
                     </span>
                   </td>
                   <td className="py-3 pr-3 text-right tabular-nums">
-                    {money(line.sgstAmount)}
+                    ₹{money(line.sgstAmount)}
                     <span className="mt-0.5 block text-[10px] text-muted-foreground">
                       @{n(line.sgstRate)}%
                     </span>
                   </td>
                   <td className="py-3 text-right font-medium tabular-nums">
-                    {money(line.lineTotal)}
+                    ₹{money(line.lineTotal)}
                   </td>
                 </tr>
               ))}
@@ -297,7 +343,7 @@ export function InvoiceDocument({ sale }: { sale: InvoiceSale }) {
                 <div className="flex justify-between gap-2">
                   <dt className="text-muted-foreground">Qty × Rate</dt>
                   <dd className="tabular-nums">
-                    {n(line.qty)} × {money(line.unitPrice)}
+                    {n(line.qty)} × ₹{money(line.unitPrice)}
                   </dd>
                 </div>
                 <div className="flex justify-between gap-2">
@@ -306,14 +352,14 @@ export function InvoiceDocument({ sale }: { sale: InvoiceSale }) {
                 </div>
                 <div className="flex justify-between gap-2">
                   <dt className="text-muted-foreground">Taxable</dt>
-                  <dd className="tabular-nums">{money(line.taxableAmount)}</dd>
+                  <dd className="tabular-nums">₹{money(line.taxableAmount)}</dd>
                 </div>
                 <div className="flex justify-between gap-2">
                   <dt className="text-muted-foreground">
                     Tax ({n(line.cgstRate) + n(line.sgstRate)}%)
                   </dt>
                   <dd className="tabular-nums">
-                    {money(n(line.cgstAmount) + n(line.sgstAmount))}
+                    ₹{money(n(line.cgstAmount) + n(line.sgstAmount))}
                   </dd>
                 </div>
               </dl>
@@ -323,9 +369,7 @@ export function InvoiceDocument({ sale }: { sale: InvoiceSale }) {
 
         <footer className="mt-8 flex flex-col gap-6 border-t border-border pt-6 sm:flex-row sm:justify-between">
           <div className="max-w-sm space-y-2 text-xs text-muted-foreground">
-            <p>
-              CGST + SGST apply for same-state supply. This is a computer-generated tax invoice.
-            </p>
+            <p>This is a computer-generated tax invoice.</p>
             {sale.notes ? (
               <p>
                 <span className="font-medium text-foreground">Notes: </span>
@@ -377,7 +421,15 @@ export function InvoiceDocument({ sale }: { sale: InvoiceSale }) {
         </footer>
 
         <p className="mt-8 text-center text-[11px] text-muted-foreground">
-          Thank you for your business · Powered by ShelfLedger
+          Thank you for your business · Powered by{' '}
+          <a
+            href={PRODUCT_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium text-primary underline underline-offset-2 print:text-foreground"
+          >
+            {POWERED_BY_LABEL}
+          </a>
         </p>
       </div>
     </article>

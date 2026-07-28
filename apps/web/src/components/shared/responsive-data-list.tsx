@@ -16,6 +16,7 @@ export function ResponsiveDataList<T extends { id: string }>({
   columns,
   mobileTitle,
   mobileMeta,
+  mobileTrailing,
   actions,
   emptyTitle = 'No data found',
   emptyDescription,
@@ -29,6 +30,8 @@ export function ResponsiveDataList<T extends { id: string }>({
   columns: DataColumn<T>[];
   mobileTitle: (row: T) => ReactNode;
   mobileMeta?: (row: T) => ReactNode;
+  /** High-priority signal opposite the title (status, amount) */
+  mobileTrailing?: (row: T) => ReactNode;
   actions?: (row: T) => ReactNode;
   emptyTitle?: string;
   emptyDescription?: string;
@@ -97,24 +100,39 @@ export function ResponsiveDataList<T extends { id: string }>({
       {/* Mobile chips */}
       <ul className="divide-y divide-border md:hidden">
         {rows.map((row) => (
-          <li key={row.id} className="space-y-2 p-3">
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <div className="font-medium text-foreground">{mobileTitle(row)}</div>
+          <li key={row.id} className="space-y-3 p-3.5">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[15px] font-semibold tracking-tight text-foreground">
+                  {mobileTitle(row)}
+                </div>
                 {mobileMeta ? (
-                  <div className="mt-0.5 text-xs text-muted-foreground">{mobileMeta(row)}</div>
+                  <div className="mt-0.5 truncate text-xs leading-snug text-muted-foreground">
+                    {mobileMeta(row)}
+                  </div>
                 ) : null}
               </div>
-              {actions ? <div className="flex shrink-0 gap-1">{actions(row)}</div> : null}
+              <div className="flex shrink-0 items-start gap-2">
+                {mobileTrailing ? (
+                  <div className="pt-0.5">{mobileTrailing(row)}</div>
+                ) : null}
+                {actions ? <div className="flex gap-1">{actions(row)}</div> : null}
+              </div>
             </div>
-            <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
-              {mobileCols.map((col) => (
-                <div key={col.id}>
-                  <dt className="text-muted-foreground">{col.header}</dt>
-                  <dd className="mt-0.5 text-foreground">{col.cell(row)}</dd>
-                </div>
-              ))}
-            </dl>
+            {mobileCols.length > 0 ? (
+              <dl className="grid grid-cols-2 gap-x-3 gap-y-2.5 border-t border-border/70 pt-2.5">
+                {mobileCols.map((col) => (
+                  <div key={col.id} className="min-w-0">
+                    <dt className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/75">
+                      {col.header}
+                    </dt>
+                    <dd className="mt-1 text-sm font-medium leading-snug text-foreground">
+                      {col.cell(row)}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            ) : null}
           </li>
         ))}
       </ul>

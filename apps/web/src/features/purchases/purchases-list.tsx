@@ -57,14 +57,21 @@ export function PurchasesList({
         ) : undefined
       }
       mobileTitle={(r) => r.vendorName}
-      mobileMeta={(r) => `${r.status} · ${r.lineCount} lines`}
+      mobileMeta={(r) => `${r.lineCount} lines`}
+      mobileTrailing={(r) => <StatusBadge status={r.status} />}
       columns={[
         {
           id: 'vendor',
           header: 'Vendor',
+          mobile: false,
           cell: (r) => <span className="font-medium">{r.vendorName}</span>,
         },
-        { id: 'status', header: 'Status', cell: (r) => <StatusBadge status={r.status} /> },
+        {
+          id: 'status',
+          header: 'Status',
+          mobile: false,
+          cell: (r) => <StatusBadge status={r.status} />,
+        },
         {
           id: 'lines',
           header: 'Lines',

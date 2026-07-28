@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Copy, MessageCircle, Printer } from 'lucide-react';
+import { Copy, Printer } from 'lucide-react';
 import {
   buildWhatsAppInvoiceMessage,
   buildWhatsAppShareUrl,
@@ -10,6 +10,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { WhatsAppIcon } from '@/components/icons/whatsapp-icon';
 
 export type WhatsAppShareInvoice = {
   shopName: string;
@@ -75,7 +76,7 @@ export function InvoiceActions({ invoice }: { invoice: WhatsAppShareInvoice }) {
               window.open(url, '_blank', 'noopener,noreferrer');
             }}
           >
-            <MessageCircle className="h-3.5 w-3.5" aria-hidden />
+            <WhatsAppIcon className="h-3.5 w-3.5" />
             WhatsApp
           </Button>
           <Button

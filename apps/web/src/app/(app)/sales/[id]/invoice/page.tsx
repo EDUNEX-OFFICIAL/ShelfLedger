@@ -61,7 +61,7 @@ export default async function InvoicePage({
               shopName: org.name,
               invoiceNo: sale.invoiceNo,
               invoiceDate: sale.invoiceDate.toISOString().slice(0, 10),
-              customerName: sale.customer.name,
+              customerName: sale.customer.isWalkIn ? 'Customer' : sale.customer.name,
               customerPhone: sale.customer.phone,
               lines: sale.lines.map((l) => ({
                 name: l.variant.article.name,

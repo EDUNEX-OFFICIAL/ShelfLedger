@@ -30,10 +30,14 @@ export function useAppShell() {
 export function AppShell({
   role,
   userName,
+  shopName,
+  shopMonogram,
   children,
 }: {
   role: string;
   userName: string;
+  shopName: string;
+  shopMonogram: string;
   children: ReactNode;
 }) {
   const [searchOpen, setSearchOpen] = useState(false);
@@ -56,9 +60,20 @@ export function AppShell({
     <ShellContext.Provider value={value}>
       <ToastProvider>
         <div className="flex h-svh overflow-hidden">
-          <AppSidebar role={role} userName={userName} />
+          <AppSidebar
+            role={role}
+            userName={userName}
+            shopName={shopName}
+            shopMonogram={shopMonogram}
+          />
           <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-            <TopBar userName={userName} role={role} onSearchClick={openSearch} />
+            <TopBar
+              userName={userName}
+              role={role}
+              shopName={shopName}
+              shopMonogram={shopMonogram}
+              onSearchClick={openSearch}
+            />
             <main className="scrollbar-app flex-1 overflow-y-auto overscroll-contain px-4 pt-5 print:overflow-visible print:p-0 pb-[calc(5rem+env(safe-area-inset-bottom))] md:px-8 md:pb-7 md:pt-7">
               {children}
             </main>

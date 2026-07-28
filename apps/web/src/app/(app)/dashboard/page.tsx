@@ -209,10 +209,12 @@ export default async function DashboardPage({
           }
           mobileTitle={(r) => r.invoiceNo}
           mobileMeta={(r) => r.customerName}
+          mobileTrailing={(r) => <StatusBadge status={r.paymentStatus} />}
           columns={[
             {
               id: 'invoice',
               header: 'Invoice',
+              mobile: false,
               cell: (r) => (
                 <Link
                   href={`/sales/${r.id}/invoice`}
@@ -225,6 +227,7 @@ export default async function DashboardPage({
             {
               id: 'customer',
               header: 'Customer',
+              mobile: false,
               cell: (r) => r.customerName,
             },
             {
@@ -239,6 +242,7 @@ export default async function DashboardPage({
             {
               id: 'payment',
               header: 'Payment',
+              mobile: false,
               cell: (r) => <StatusBadge status={r.paymentStatus} />,
             },
             {

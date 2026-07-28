@@ -157,6 +157,15 @@ export const settingsRepository = {
     });
   },
 
+  /** Single-tenant V1: first active org (login / public branding). */
+  findPrimaryOrganization() {
+    return prisma.organization.findFirst({
+      where: { ...active },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true, name: true },
+    });
+  },
+
   updateOrganization(organizationId: string, data: Prisma.OrganizationUpdateInput) {
     return prisma.organization.update({
       where: { id: organizationId },
