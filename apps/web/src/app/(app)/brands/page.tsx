@@ -1,9 +1,12 @@
+import { Tag } from 'lucide-react';
 import { canManageMasters } from '@shelfledger/db';
 import { requireSession } from '@/server/auth/guards';
 import { masterService } from '@/server/services/masters';
 import { PageHeader } from '@/components/shared/page-header';
+import { SectionHeader } from '@/components/shared/section-header';
+import { buttonClassName } from '@/components/ui/button';
 import { BrandForm } from '@/features/brands/brand-form';
-import { DeleteButton } from '@/components/shared/delete-button';
+import { SimpleMasterList } from '@/features/masters/simple-master-list';
 import { deleteBrandAction } from '@/features/masters/actions';
 
 export default async function BrandsPage() {
@@ -13,45 +16,47 @@ export default async function BrandsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Brands" description="Product brands for articles." />
-      <BrandForm canWrite={canWrite} />
-      <div className="overflow-hidden rounded-md border border-border bg-white">
-        <table className="w-full text-left text-sm">
-          <thead className="border-b border-border bg-muted/60 text-muted-foreground">
-            <tr>
-              <th className="px-3 py-2 font-medium">Name</th>
-              <th className="px-3 py-2 font-medium">Code</th>
-              <th className="px-3 py-2 font-medium text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {brands.length === 0 ? (
-              <tr>
-                <td className="px-3 py-6 text-muted-foreground" colSpan={3}>
-                  No brands yet.
-                </td>
-              </tr>
-            ) : (
-              brands.map((brand) => (
-                <tr key={brand.id} className="border-b border-border last:border-0">
-                  <td className="px-3 py-2 font-medium">{brand.name}</td>
-                  <td className="px-3 py-2 font-mono text-xs">{brand.code ?? '—'}</td>
-                  <td className="px-3 py-2">
-                    {canWrite ? (
-                      <div className="flex justify-end">
-                        <DeleteButton action={deleteBrandAction.bind(null, brand.id)} />
-                      </div>
-                    ) : null}
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-      {!canWrite ? (
+      <PageHeader
+        title="Brands"
+        description="Product brands for articles."
+        actions={
+          canWrite ? (
+            <a href="#new-brand" className={buttonClassName({ size: 'lg' })}>
+              <Tag className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+              Add brand
+            </a>
+          ) : null
+        }
+      />
+
+      {canWrite ? (
+        <section id="new-brand" className="scroll-mt-24 space-y-3">
+          <SectionHeader title="Create brand" description="Name and optional short code." />
+          <BrandForm canWrite={canWrite} />
+        </section>
+      ) : (
         <p className="text-sm text-muted-foreground">Read-only: your role cannot edit masters.</p>
-      ) : null}
+      )}
+
+      <section className="space-y-3">
+        <SectionHeader title="All brands" />
+        <SimpleMasterList
+          canWrite={canWrite}
+          searchPlaceholder="Search brand name or code…"
+          emptyTitle="No brands yet"
+          emptyDescription="Add a brand before creating articles."
+          emptyAction={
+            canWrite ? (
+              <a href="#new-brand" className={buttonClassName({ size: 'md' })}>
+                Add brand
+              </a>
+            ) : undefined
+          }
+          secondaryHeader="Code"
+          rows={brands.map((b) => ({ id: b.id, name: b.name, secondary: b.code ?? '' }))}
+          onDelete={deleteBrandAction}
+        />
+      </section>
     </div>
   );
 }

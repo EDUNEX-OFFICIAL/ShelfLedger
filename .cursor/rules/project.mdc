@@ -17,3 +17,5 @@ alwaysApply: true
 - Deploy: Docker; only Caddy on 80/8443; private `shelfledger_internal`; update `/srv/scripts/PORT_REGISTRY.md` before host binds.
 - Execute per `docs/phases.md`. Current phase in `docs/memory.md`.
 - Never forget: no Prisma in UI; Zod on server; phase-by-phase delivery.
+- **Mobile-first responsive UI (locked):** client + staff use phones/tablets as primary devices; design/QA at ~375px first.
+- Counter billing target: **Quick Sale** create+post one action (`docs/architecture.md` ADR-012/013).

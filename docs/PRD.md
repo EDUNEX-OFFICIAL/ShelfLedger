@@ -1,8 +1,8 @@
 # Product Requirements Document — ShelfLedger
 
-**Version:** 1.1.0  
+**Version:** 1.2.0  
 **Status:** Phase 0 approved decisions locked — ready for Phase 1 scaffold  
-**Last Updated:** 2026-07-27  
+**Last Updated:** 2026-07-28  
 **Owner:** Product + Engineering  
 **Product:** ShelfLedger (generic retail ERP brand)  
 **First vertical:** Footwear (size × color variants)
@@ -43,10 +43,11 @@ This causes stock mismatches, GST risk, and opaque margins.
 | G1 | Accurate, auditable inventory via stock ledger |
 | G2 | GST-compliant sales invoices (India) for retail (footwear-first) |
 | G3 | End-to-end purchase → stock → sale → reports loop |
-| G4 | Fast counter UX for billing and exchanges |
+| G4 | Fast counter UX for billing and exchanges (**mobile-first**; Quick Sale punch) |
 | G5 | Architecture ready for multi-branch without rewrite |
 | G6 | Maintainable codebase with clear domain boundaries |
 | G7 | Deployable on Hostinger VPS (Docker + Caddy) |
+| G8 | Fully responsive UI — phones/tablets are the primary staff devices |
 
 ---
 
@@ -56,7 +57,7 @@ This causes stock mismatches, GST risk, and opaque margins.
 - Online payments gateway as primary flow
 - Full accounting (ledger books, P&L, balance sheet) — deferred
 - Multi-company / multi-tenant SaaS in V1 (single org; multi-branch schema-ready)
-- Mobile native apps
+- Mobile **native** apps (V1 is a **mobile-first responsive web app** — PWA optional later)
 - Barcode hardware integration (schema hooks only)
 - WhatsApp automation
 - Loyalty program
@@ -69,8 +70,8 @@ This causes stock mismatches, GST risk, and opaque margins.
 
 | Persona | Needs |
 |---------|--------|
-| Shop Owner | Dashboard, margins, expenses, staff oversight, settings |
-| Billing Counter Staff | Fast sales, GST invoice, exchange, customer lookup |
+| Shop Owner | Dashboard, margins, expenses, staff oversight, settings — often on **phone** |
+| Billing Counter Staff | **Lightning-fast sale punch** on phone/tablet, GST invoice, exchange, customer lookup |
 | Store Manager | Purchases, stock adjustments, vendors, reports |
 | Accountant (light) | GST summaries, expense lists, invoice reprints |
 
@@ -125,6 +126,8 @@ Roles (V1): `OWNER`, `MANAGER`, `CASHIER`, `VIEWER`
 - Balance query / materialized balance table
 
 ### 7.5 Sales & GST
+- **Quick Sale (POS punch):** one screen, create+post in one action — walk-in defaults, SKU search, payment chips, sticky Punch sale (primary staff path; mobile-first)
+- Full draft sale for complex bills (overrides, partial pay, notes) then post
 - Counter sale with multiple lines
 - Discounts (line + bill)
 - **CGST + SGST only (same-state)** in V1 — no IGST flow
@@ -178,6 +181,8 @@ Roles (V1): `OWNER`, `MANAGER`, `CASHIER`, `VIEWER`
 | FR-10 | UI SHALL never call Prisma; only services/repositories |
 | FR-11 | Invoice numbers SHALL be unique per series/branch/FY |
 | FR-12 | Exchange SHALL keep return and replacement linked in one exchange document |
+| FR-13 | UI SHALL be mobile-first and fully responsive; primary staff flows usable on phone |
+| FR-14 | Quick Sale SHALL create and post a sale in one staff action (same ledger/GST invariants as draft→post) |
 
 ---
 
@@ -185,14 +190,15 @@ Roles (V1): `OWNER`, `MANAGER`, `CASHIER`, `VIEWER`
 
 | Area | Requirement |
 |------|-------------|
-| Performance | Counter sale create &lt; 500ms p95 on VPS for typical carts (≤20 lines) |
+| Performance | Counter / Quick Sale post &lt; 500ms p95 on VPS for typical carts (≤20 lines) |
 | Availability | Single-node Docker; graceful DB errors |
 | Security | AuthN before AuthZ; CSRF for cookie sessions; rate limit login |
-| Accessibility | WCAG AA for primary flows |
+| Accessibility | WCAG AA for primary flows; touch targets usable on mobile |
 | Maintainability | Feature modules; services; typed errors |
 | Observability | Structured logs; request correlation id |
 | Backup | Postgres backups via shared VPS ops (documented) |
-| Browser | Last 2 Chrome/Edge/Firefox; Safari recent |
+| Browser | Last 2 Chrome/Edge/Firefox; Safari recent; **mobile Safari/Chrome primary for counter** |
+| Responsive | Mobile-first; QA primary flows at ~375px width |
 
 ---
 
@@ -216,7 +222,7 @@ Roles (V1): `OWNER`, `MANAGER`, `CASHIER`, `VIEWER`
 | Metric | Target (first 30 days live) |
 |--------|------------------------------|
 | Stock adjustment frequency | Decreasing vs week 1 (trust in system) |
-| Invoice time (staff) | &lt; 2 minutes typical bill |
+| Invoice time (staff) | &lt; 30s typical walk-in Quick Sale; &lt; 2 min complex bill |
 | Stock variance at month end | &lt; 2% of SKUs needing recount |
 | Critical bugs (stock wrong sign) | Zero |
 | GST invoice reprint success | 100% for posted invoices |
@@ -240,6 +246,8 @@ See [future-roadmap.md](./future-roadmap.md): Barcode, WhatsApp, Loyalty, Wareho
 | Negative stock | Block by default; `MANAGER`+ override + reason |
 | Invoice PDF | Print CSS first; server PDF later |
 | Receivables | Payment status only (`PAID` / `PARTIAL` / `UNPAID`) |
+| UI device priority | **Locked: mobile-first responsive web** (phones/tablets primary; native app later) |
+| Quick Sale | **Locked:** create+post one action; keep draft form for complex bills |
 | Seed owner email | Open (ask at Phase 1 seed) |
 
 ---

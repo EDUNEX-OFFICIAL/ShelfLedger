@@ -3,7 +3,7 @@ import {
   roundUnitCost,
 } from '@shelfledger/domain';
 import type { StockMovementType, ReferenceType } from '@shelfledger/db';
-import { BusinessRuleError } from '@shelfledger/errors';
+import { InsufficientStockError, BusinessRuleError } from '@shelfledger/errors';
 import {
   inventoryBalanceRepository,
   stockLedgerRepository,
@@ -25,7 +25,7 @@ export type StockMovementInput = {
   userId: string;
   /** Inbound purchase/opening: update weighted average. */
   affectsAverageCost: boolean;
-  /** Manager override for outbound below zero (sales phase). Inventory module keeps false. */
+  /** Manager override for outbound below zero (sales). */
   allowNegative?: boolean;
 };
 
@@ -46,7 +46,7 @@ export async function applyStockMovement(tx: TxClient, input: StockMovementInput
   const newQty = oldQty + signedQty;
 
   if (outbound && newQty < -0.000001 && !input.allowNegative) {
-    throw new BusinessRuleError('Insufficient stock for this movement', {
+    throw new InsufficientStockError('Insufficient stock for this movement', {
       available: oldQty,
       requested: input.qty,
       variantId: input.variantId,
@@ -56,10 +56,10 @@ export async function applyStockMovement(tx: TxClient, input: StockMovementInput
   let newAvg = oldAvg;
   let ledgerUnitCost = input.unitCost;
 
-  if (input.movementType === 'PURCHASE_RETURN') {
-    // rules.md: keep average cost unchanged on purchase return
+  if (isCostPreservingReturn(input.movementType)) {
+    // Keep average unchanged when stock returns (purchase return / sale return / exchange in)
     newAvg = newQty <= 0 ? 0 : oldAvg;
-    ledgerUnitCost = oldAvg;
+    ledgerUnitCost = input.unitCost > 0 ? input.unitCost : oldAvg;
   } else if (!outbound && input.affectsAverageCost) {
     newAvg = roundUnitCost(
       computeWeightedAverageCost({
@@ -119,7 +119,14 @@ export async function applyStockMovement(tx: TxClient, input: StockMovementInput
     });
   }
 
-  return { oldQty, newQty, oldAvg, newAvg: roundUnitCost(newAvg), signedQty };
+  return {
+    oldQty,
+    newQty,
+    oldAvg,
+    newAvg: roundUnitCost(newAvg),
+    signedQty,
+    unitCost: roundUnitCost(ledgerUnitCost),
+  };
 }
 
 function isOutbound(type: StockMovementType): boolean {
@@ -132,4 +139,8 @@ function isOutbound(type: StockMovementType): boolean {
     type === 'LOST' ||
     type === 'TRANSFER_OUT'
   );
+}
+
+function isCostPreservingReturn(type: StockMovementType): boolean {
+  return type === 'PURCHASE_RETURN' || type === 'SALE_RETURN' || type === 'EXCHANGE_IN';
 }

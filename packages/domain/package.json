@@ -10,7 +10,7 @@
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --import tsx --test src/**/*.test.ts"
+    "test": "node --import tsx --test $(find src -name '*.test.ts')"
   },
   "devDependencies": {
     "@shelfledger/tsconfig": "workspace:*",

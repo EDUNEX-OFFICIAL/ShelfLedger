@@ -27,6 +27,10 @@ export const masterService = {
     return dashboardRepository.counts(user.organizationId);
   },
 
+  opsDashboard(user: SessionUser, from: Date, to: Date) {
+    return dashboardRepository.opsSummary(user.organizationId, from, to);
+  },
+
   listBrands(user: SessionUser) {
     return brandRepository.list(user.organizationId);
   },

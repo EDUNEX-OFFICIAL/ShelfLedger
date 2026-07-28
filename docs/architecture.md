@@ -1,8 +1,8 @@
 # Architecture — ShelfLedger
 
-**Version:** 1.0.0  
+**Version:** 1.1.0  
 **Status:** Approved for Phase 1 review  
-**Last Updated:** 2026-07-27
+**Last Updated:** 2026-07-28
 
 ---
 
@@ -81,6 +81,34 @@ Sales use current avg cost for COGS snapshot on line (store `unitCost` at sale t
 ### ADR-011: Generic product brand
 
 **Decision:** Product name **ShelfLedger** (pitchable to any retailer). Footwear is the first vertical template, not the product brand.
+
+### ADR-012: Mobile-first UI (staff phones are primary)
+
+**Decision:** The ERP UI is **mobile-first and fully responsive**. Owner and counter staff primarily use phones/tablets on the shop floor; desktop remains a progressive enhancement for dense reports and catalog editing.
+
+**Why:** Client staff will punch sales and check stock on mobile. Designing desktop-first then “shrinking” produces unusable counter flows.
+
+**Implications:** Touch targets ≥44px on primary actions; sticky bottom CTAs on sale punch; stacked forms &lt; `md`; tables → `ResponsiveDataList` chips on mobile. See [design.md](./design.md).
+
+### ADR-013: Quick Sale (create + post in one action)
+
+**Decision:** Add a **Quick Sale / POS** path that creates a draft and posts it in **one server action / one DB transaction path** (same invariants as draft→post). Keep the existing draft form for complex bills (overrides, multi-payment, notes).
+
+**Why:** Current flow is draft form → list → confirm Post → invoice — too many taps for walk-in counter sales on mobile.
+
+**Where (implementation map):**
+
+| Layer | Location | Change |
+|-------|----------|--------|
+| Service | `apps/web/src/server/services/sale.ts` | `createAndPost(user, input)` — compose `createDraft` + `post` (prefer single transaction wrapping both, or draft+post in one action with shared tx) |
+| Validator | `packages/validators` | Reuse `saleCreateSchema`; optional `quickSaleSchema` with stricter defaults (walk-in, paid-in-full) |
+| Action | `features/sales/actions.ts` | `createAndPostSaleAction` → redirect/return invoice id |
+| UI | `features/sales/quick-sale-form.tsx` + route `app/(app)/sales/quick/page.tsx` (or `/pos`) | Mobile-first punch screen; nav “Quick Sale” primary for cashiers |
+| Existing | `sale-form.tsx` + list Post | Keep for drafts / manager overrides |
+
+**UX defaults (lightning path):** Walk-in customer · today · selling price from variant · article default tax · qty 1 · payment = total · method Cash/UPI/Card big taps · **one CTA “Punch sale”** → invoice (+ WhatsApp share).
+
+**Invariant:** Still only `applyStockMovement` mutates stock; invoice sequence still allocated at post; no Prisma in UI.
 
 ---
 

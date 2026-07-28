@@ -1,25 +1,220 @@
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Source+Sans+3:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --background: 0 0% 100%;
-  --foreground: 222 25% 12%;
-  --muted: 210 20% 96%;
-  --muted-foreground: 215 12% 40%;
-  --border: 214 16% 88%;
-  --primary: 199 75% 32%;
+  /* Quiet ink & paper — cool slate canvas, deep teal accent (no neon) */
+  --background: 220 24% 96.5%;
+  --foreground: 222 30% 12%;
+  --muted: 220 18% 93%;
+  --muted-foreground: 215 14% 42%;
+  --border: 220 16% 88%;
+  --card: 0 0% 100%;
+  --card-foreground: 222 30% 12%;
+  --primary: 173 48% 28%;
   --primary-foreground: 0 0% 100%;
-  --destructive: 0 72% 48%;
-  --success: 152 60% 32%;
-  --warning: 38 92% 42%;
-  --sidebar: 210 25% 10%;
-  --sidebar-foreground: 210 20% 92%;
-  --radius: 0.375rem;
+  --secondary: 220 16% 92%;
+  --secondary-foreground: 222 30% 14%;
+  --accent: 173 32% 94%;
+  --accent-foreground: 173 48% 22%;
+  --destructive: 0 68% 46%;
+  --destructive-foreground: 0 0% 100%;
+  --success: 152 48% 30%;
+  --success-foreground: 0 0% 100%;
+  --warning: 36 88% 40%;
+  --warning-foreground: 0 0% 100%;
+  --ring: 173 48% 28%;
+  --sidebar: 222 28% 11%;
+  --sidebar-foreground: 210 20% 94%;
+  --sidebar-muted: 215 16% 58%;
+  --sidebar-hover: 220 20% 16%;
+  --sidebar-active: 173 40% 18%;
+  --shadow-card: 0 1px 2px hsl(222 30% 12% / 0.04), 0 4px 16px hsl(222 30% 12% / 0.04);
+  --radius: 0.625rem;
 }
 
-body {
-  @apply bg-background text-foreground font-sans antialiased;
+@layer base {
+  html {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    height: 100%;
+    overflow: hidden;
+    background-image:
+      radial-gradient(ellipse 80% 50% at 100% -20%, hsl(173 40% 88% / 0.35), transparent 55%),
+      radial-gradient(ellipse 60% 40% at 0% 100%, hsl(220 40% 90% / 0.45), transparent 50%);
+    background-attachment: fixed;
+  }
+
+  /* Radix Select/Dialog scroll-lock: body already non-scrolling — kill padding jump */
+  body[data-scroll-locked] {
+    --removed-body-scroll-bar-size: 0px !important;
+    margin-right: 0 !important;
+    padding-right: 0 !important;
+    overflow: hidden !important;
+  }
+
+  *:focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer utilities {
+  .shadow-card {
+    box-shadow: var(--shadow-card);
+  }
+
+  /* Main content / sheets — always show thin teal thumb when scrollable */
+  .scrollbar-app {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(173 28% 62% / 0.7) hsl(220 18% 93% / 0.6);
+  }
+
+  .scrollbar-app::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .scrollbar-app::-webkit-scrollbar-track {
+    background: hsl(220 18% 93% / 0.55);
+    border-radius: 999px;
+  }
+
+  .scrollbar-app::-webkit-scrollbar-thumb {
+    background: hsl(173 32% 52% / 0.55);
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+
+  .scrollbar-app::-webkit-scrollbar-thumb:hover {
+    background: hsl(173 40% 38% / 0.75);
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+
+  .scrollbar-app::-webkit-scrollbar-button {
+    display: none;
+    height: 0;
+    width: 0;
+  }
+
+  /* Desktop sidebar — thumb only on hover / focus-within */
+  .scrollbar-sidebar {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+  }
+
+  .scrollbar-sidebar:hover,
+  .scrollbar-sidebar:focus-within {
+    scrollbar-color: hsl(215 16% 42% / 0.85) transparent;
+  }
+
+  .scrollbar-sidebar::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .scrollbar-sidebar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-sidebar::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 999px;
+  }
+
+  .scrollbar-sidebar:hover::-webkit-scrollbar-thumb,
+  .scrollbar-sidebar:focus-within::-webkit-scrollbar-thumb {
+    background: hsl(215 16% 42% / 0.85);
+  }
+
+  .scrollbar-sidebar::-webkit-scrollbar-button {
+    display: none;
+    height: 0;
+    width: 0;
+  }
+
+  /* Legacy alias used in a few lists */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+  }
+
+  .scrollbar-thin:hover,
+  .scrollbar-thin:focus-within {
+    scrollbar-color: hsl(215 16% 42% / 0.85) transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 999px;
+  }
+
+  .scrollbar-thin:hover::-webkit-scrollbar-thumb,
+  .scrollbar-thin:focus-within::-webkit-scrollbar-thumb {
+    background: hsl(215 16% 42% / 0.85);
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-button {
+    display: none;
+    height: 0;
+    width: 0;
+  }
+}
+
+@media print {
+  html,
+  body {
+    height: auto !important;
+    overflow: visible !important;
+    background: #fff !important;
+    background-image: none !important;
+    color: #111 !important;
+  }
+
+  aside,
+  header,
+  nav[aria-label='Primary'],
+  [data-toast-root] {
+    display: none !important;
+  }
+
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    height: auto !important;
+  }
+
+  .invoice-sheet {
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  a[href]::after {
+    content: none !important;
+  }
 }

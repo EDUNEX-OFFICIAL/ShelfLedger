@@ -1,14 +1,18 @@
 import { cn } from '@/lib/utils';
-import type { InputHTMLAttributes } from 'react';
+import { forwardRef, type InputHTMLAttributes } from 'react';
 
-export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
-  return (
-    <input
-      className={cn(
-        'flex h-10 w-full rounded-md border border-border bg-white px-3 text-sm outline-none ring-primary focus:ring-2',
-        className,
-      )}
-      {...props}
-    />
-  );
-}
+export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(
+  function Input({ className, ...props }, ref) {
+    return (
+      <input
+        ref={ref}
+        className={cn(
+          'flex h-10 w-full rounded-lg border border-border/80 bg-card px-3 text-sm outline-none ring-ring focus:ring-2 disabled:opacity-50',
+          'aria-[invalid=true]:border-destructive',
+          className,
+        )}
+        {...props}
+      />
+    );
+  },
+);

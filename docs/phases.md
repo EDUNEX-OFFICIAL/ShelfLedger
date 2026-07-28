@@ -113,6 +113,8 @@ Work proceeds **phase by phase**. Do not start the next phase until Definition o
 
 ## Phase 4 — Sales, GST Billing, Customers, Exchange
 
+**Status:** Complete
+
 ### Deliverables
 - Customer CRUD
 - Sale draft → post with GST split
@@ -126,14 +128,16 @@ Work proceeds **phase by phase**. Do not start the next phase until Definition o
 - Phase 3 stock
 
 ### Definition of Done
-- [ ] Sale blocked on insufficient stock (override path works)
-- [ ] GST totals match line sums
-- [ ] Exchange updates ledger both ways
-- [ ] E2E happy path: purchase → sale → exchange
+- [x] Sale blocked on insufficient stock (override path works)
+- [x] GST totals match line sums
+- [x] Exchange updates ledger both ways
+- [x] E2E happy path: purchase → sale → exchange (`packages/db/prisma/test-sale-exchange.ts`)
 
 ---
 
 ## Phase 5 — Expenses, Staff, Reports, Settings
+
+**Status:** Complete
 
 ### Deliverables
 - Expenses CRUD
@@ -145,13 +149,15 @@ Work proceeds **phase by phase**. Do not start the next phase until Definition o
 - Phase 4
 
 ### Definition of Done
-- [ ] Report totals match fixture SQL checks
-- [ ] Settings changes affect new invoices only
-- [ ] Viewer role read-only enforced
+- [x] Report totals match fixture SQL checks (`packages/db/prisma/test-phase5-reports.ts`)
+- [x] Settings changes affect new invoices only
+- [x] Viewer role read-only enforced
 
 ---
 
 ## Phase 6 — Hardening & Deployment
+
+**Status:** Complete
 
 ### Deliverables
 - Docker image + compose (`shelfledger_internal`, `vps_edge`)
@@ -166,18 +172,40 @@ Work proceeds **phase by phase**. Do not start the next phase until Definition o
 - Phase 5 (or parallel harden after Phase 4 if early go-live)
 
 ### Definition of Done
-- [ ] App reachable via Caddy hostname
-- [ ] No 0.0.0.0 app port publish
-- [ ] PORT_REGISTRY updated
-- [ ] Smoke test on VPS
+- [x] App reachable via Caddy hostname network (`shelfledger-web:3000` on `vps_edge`) + loopback `127.0.0.1:3002`
+- [x] No 0.0.0.0 app port publish
+- [x] PORT_REGISTRY updated (`3002`, `5434`, shared DB notes)
+- [x] Smoke test on VPS (`/api/health?deep=1`)
+
+---
+
+## Phase 6.1 — Quick Sale + Mobile-first counter UX
+
+**Status:** Complete
+
+### Deliverables
+- `saleService.createAndPost` (+ `createAndPostSaleAction`)
+- Mobile-first Quick Sale route `/sales/quick` (nav primary for cashiers)
+- Walk-in / today / selling price / default tax / pay-in-full defaults
+- Sticky “Punch sale” CTA → invoice; keep draft form for complex bills
+- Touch-target / sticky-CTA pass on sale, exchange, purchase primary flows
+
+### Dependencies
+- Phase 4 sale service + Phase 6 deploy
+
+### Definition of Done
+- [x] Cashier can punch a walk-in paid sale in one action from a phone viewport
+- [x] Stock/GST/invoice sequence invariants identical to draft→post
+- [x] Draft sale form still available for overrides / partial pay
+- [x] Docs ADR-012 / ADR-013 reflected in UI
 
 ---
 
 ## Phase 7+ — Future Modules
 
-Barcode scanning/printing, WhatsApp, Loyalty, Warehouse, Multi-branch UI, Accounting, Mobile API.
+Barcode scanning/printing, WhatsApp, Loyalty, Warehouse, Multi-branch UI, Accounting, optional native mobile API.
 
-See [future-roadmap.md](./future-roadmap.md).
+See [future-roadmap.md](./future-roadmap.md) (Quick Sale is Phase **6.1**, ahead of barcode).
 
 ---
 

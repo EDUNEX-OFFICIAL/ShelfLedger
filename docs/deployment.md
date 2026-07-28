@@ -110,8 +110,10 @@ Never commit real `.env`. Use `.env.example` only.
 
 ## 8. Backups
 
+See [backup.md](./backup.md) for dump/restore commands and post-restore checks.
+
 - Include database `shelfledger` in VPS Postgres backup procedures
-- Restore drill in ops runbook (Phase 6)
+- Restore drill documented; run periodically
 
 ---
 

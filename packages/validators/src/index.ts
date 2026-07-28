@@ -156,3 +156,153 @@ export type PurchaseCreateInput = z.infer<typeof purchaseCreateSchema>;
 export type PurchaseReturnInput = z.infer<typeof purchaseReturnSchema>;
 export type OpeningStockInput = z.infer<typeof openingStockSchema>;
 export type StockAdjustmentInput = z.infer<typeof stockAdjustmentSchema>;
+
+export const customerCreateSchema = z.object({
+  name: z.string().trim().min(1).max(160),
+  phone: z.string().trim().max(20).optional().or(z.literal('')),
+  email: optionalEmailSchema,
+  gstin: z.string().trim().max(15).optional().or(z.literal('')),
+  stateCode: optionalStateCodeSchema,
+  address: z.string().trim().max(500).optional().or(z.literal('')),
+});
+
+export const customerUpdateSchema = customerCreateSchema;
+
+export const paymentMethodSchema = z.enum(['CASH', 'UPI', 'CARD', 'OTHER']);
+
+export const salePaymentInputSchema = z.object({
+  method: paymentMethodSchema,
+  amount: z.coerce.number().positive().max(1_000_000),
+  reference: z.string().trim().max(120).optional().or(z.literal('')),
+});
+
+export const saleLineInputSchema = z.object({
+  variantId: z.string().uuid(),
+  qty: z.coerce.number().positive().max(1_000_000),
+  unitPrice: z.coerce.number().min(0).max(1_000_000),
+  discountAmount: z.coerce.number().min(0).max(1_000_000).default(0),
+  taxRateId: z.string().uuid().optional().nullable(),
+});
+
+export const saleCreateSchema = z.object({
+  customerId: z.string().uuid(),
+  invoiceDate: z.string().optional().or(z.literal('')),
+  notes: z.string().trim().max(1000).optional().or(z.literal('')),
+  billDiscount: z.coerce.number().min(0).max(1_000_000).default(0),
+  stockOverride: z.boolean().optional().default(false),
+  overrideReason: z.string().trim().max(500).optional().or(z.literal('')),
+  lines: z.array(saleLineInputSchema).min(1),
+  payments: z.array(salePaymentInputSchema).optional().default([]),
+});
+
+/** Digits-only phone for lookup / storage (strips +91 / leading 0). */
+export function normalizeCustomerPhone(raw: string): string {
+  const digits = raw.replace(/\D/g, '');
+  if (digits.length === 12 && digits.startsWith('91')) return digits.slice(2);
+  if (digits.length === 11 && digits.startsWith('0')) return digits.slice(1);
+  return digits;
+}
+
+/** Quick Sale: capture name + mobile (no customer picker); always walk-in style counter flow. */
+export const quickSaleSchema = z.object({
+  customerName: z.string().trim().min(1, 'Name is required').max(160),
+  customerPhone: z
+    .string()
+    .trim()
+    .min(1, 'Mobile number is required')
+    .max(20)
+    .transform((v) => normalizeCustomerPhone(v))
+    .refine((v) => v.length >= 10 && v.length <= 15, {
+      message: 'Enter a valid 10-digit mobile number',
+    }),
+  payMethod: paymentMethodSchema,
+  lines: z.array(saleLineInputSchema).min(1),
+});
+
+export const exchangeReturnLineSchema = z.object({
+  originalSaleLineId: z.string().uuid(),
+  qty: z.coerce.number().positive().max(1_000_000),
+});
+
+export const exchangeReplaceLineSchema = z.object({
+  variantId: z.string().uuid(),
+  qty: z.coerce.number().positive().max(1_000_000),
+  unitPrice: z.coerce.number().min(0).max(1_000_000),
+  taxRateId: z.string().uuid().optional().nullable(),
+});
+
+export const exchangeCreateSchema = z.object({
+  customerId: z.string().uuid(),
+  originalSaleId: z.string().uuid(),
+  notes: z.string().trim().max(1000).optional().or(z.literal('')),
+  returnLines: z.array(exchangeReturnLineSchema).min(1),
+  replaceLines: z.array(exchangeReplaceLineSchema).default([]),
+});
+
+export type CustomerInput = z.infer<typeof customerCreateSchema>;
+export type SaleCreateInput = z.infer<typeof saleCreateSchema>;
+export type QuickSaleInput = z.infer<typeof quickSaleSchema>;
+export type ExchangeCreateInput = z.infer<typeof exchangeCreateSchema>;
+
+export const expenseCreateSchema = z.object({
+  categoryId: z.string().uuid(),
+  amount: z.coerce.number().positive().max(10_000_000),
+  expenseDate: z.string().min(1),
+  paymentMethod: paymentMethodSchema,
+  notes: z.string().trim().max(1000).optional().or(z.literal('')),
+});
+
+export const expenseCategoryCreateSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+});
+
+export const staffCreateSchema = z.object({
+  email: z.string().trim().email().max(255),
+  name: z.string().trim().min(1).max(120),
+  password: z.string().min(8).max(128),
+  role: z.enum(['OWNER', 'MANAGER', 'CASHIER', 'VIEWER']),
+});
+
+export const staffUpdateSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  role: z.enum(['OWNER', 'MANAGER', 'CASHIER', 'VIEWER']),
+  isActive: z.boolean(),
+});
+
+export const orgSettingsSchema = z.object({
+  name: z.string().trim().min(1).max(160),
+  gstin: z.string().trim().max(15).optional().or(z.literal('')),
+  stateCode: z.string().trim().regex(/^\d{2}$/, 'State code must be 2 digits'),
+  addressLine1: z.string().trim().max(200).optional().or(z.literal('')),
+  addressLine2: z.string().trim().max(200).optional().or(z.literal('')),
+  city: z.string().trim().max(80).optional().or(z.literal('')),
+  pincode: z.string().trim().max(12).optional().or(z.literal('')),
+  phone: z.string().trim().max(20).optional().or(z.literal('')),
+  email: optionalEmailSchema,
+  financialYearStartMonth: z.coerce.number().int().min(1).max(12),
+});
+
+export const taxRateCreateSchema = z.object({
+  name: z.string().trim().min(1).max(80),
+  totalRate: z.coerce.number().min(0).max(100),
+  cgstRate: z.coerce.number().min(0).max(100),
+  sgstRate: z.coerce.number().min(0).max(100),
+});
+
+export const sequenceUpdateSchema = z.object({
+  id: z.string().uuid(),
+  prefix: z.string().trim().min(1).max(20),
+});
+
+export const reportDateRangeSchema = z.object({
+  from: z.string().min(1),
+  to: z.string().min(1),
+});
+
+export type ExpenseCreateInput = z.infer<typeof expenseCreateSchema>;
+export type StaffCreateInput = z.infer<typeof staffCreateSchema>;
+export type StaffUpdateInput = z.infer<typeof staffUpdateSchema>;
+export type OrgSettingsInput = z.infer<typeof orgSettingsSchema>;
+export type TaxRateCreateInput = z.infer<typeof taxRateCreateSchema>;
+export type SequenceUpdateInput = z.infer<typeof sequenceUpdateSchema>;
+export type ReportDateRangeInput = z.infer<typeof reportDateRangeSchema>;

@@ -1,8 +1,13 @@
+import Link from 'next/link';
+import { ClipboardList, SlidersHorizontal } from 'lucide-react';
 import { canManageInventory } from '@shelfledger/db';
 import { requireSession } from '@/server/auth/guards';
 import { inventoryService } from '@/server/services/inventory';
 import { PageHeader } from '@/components/shared/page-header';
+import { SectionHeader } from '@/components/shared/section-header';
+import { buttonClassName } from '@/components/ui/button';
 import { OpeningStockForm, AdjustmentForm } from '@/features/inventory/inventory-forms';
+import { InventoryBalancesList } from '@/features/inventory/inventory-list';
 
 export default async function InventoryPage() {
   const user = await requireSession();
@@ -22,57 +27,76 @@ export default async function InventoryPage() {
       <PageHeader
         title="Inventory"
         description="Balances are maintained from the stock ledger. Never edit quantity directly."
+        actions={
+          canWrite ? (
+            <div className="flex flex-wrap gap-2">
+              <a href="#opening-stock" className={buttonClassName({ size: 'lg' })}>
+                <ClipboardList className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+                Opening stock
+              </a>
+              <a
+                href="#adjustments"
+                className={buttonClassName({ variant: 'secondary', size: 'md' })}
+              >
+                <SlidersHorizontal className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+                Adjust
+              </a>
+            </div>
+          ) : null
+        }
       />
 
-      <div className="space-y-2">
-        <h2 className="text-sm font-semibold">Opening stock</h2>
-        <OpeningStockForm canWrite={canWrite} variants={options} />
-      </div>
+      {canWrite ? (
+        <>
+          <section id="opening-stock" className="scroll-mt-24 space-y-3">
+            <SectionHeader
+              title="Opening stock"
+              description="First-time qty + unit cost for a SKU. Posts through the stock ledger."
+            />
+            <OpeningStockForm canWrite={canWrite} variants={options} />
+          </section>
 
-      <div className="space-y-2">
-        <h2 className="text-sm font-semibold">Adjustments</h2>
-        <AdjustmentForm canWrite={canWrite} variants={options} />
-      </div>
+          <section id="adjustments" className="scroll-mt-24 space-y-3">
+            <SectionHeader
+              title="Adjustments"
+              description="In, out, damage, or lost — reason required. Never edits qty outside the ledger."
+            />
+            <AdjustmentForm canWrite={canWrite} variants={options} />
+          </section>
+        </>
+      ) : null}
 
-      <div className="overflow-hidden rounded-md border border-border bg-white">
-        <table className="w-full text-left text-sm">
-          <thead className="border-b border-border bg-muted/60 text-muted-foreground">
-            <tr>
-              <th className="px-3 py-2 font-medium">SKU</th>
-              <th className="px-3 py-2 font-medium">Article</th>
-              <th className="px-3 py-2 font-medium">Location</th>
-              <th className="px-3 py-2 font-medium">Qty</th>
-              <th className="px-3 py-2 font-medium">Avg cost</th>
-            </tr>
-          </thead>
-          <tbody>
-            {balances.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="px-3 py-6 text-muted-foreground">
-                  No stock balances yet. Post opening stock or a purchase.
-                </td>
-              </tr>
-            ) : (
-              balances.map((b) => (
-                <tr key={b.id} className="border-b border-border last:border-0">
-                  <td className="px-3 py-2 font-mono text-xs">{b.variant.sku}</td>
-                  <td className="px-3 py-2">
-                    {b.variant.article.name}{' '}
-                    <span className="text-muted-foreground">
-                      ({b.variant.size}/{b.variant.color})
-                    </span>
-                  </td>
-                  <td className="px-3 py-2">{b.location.name}</td>
-                  <td className="px-3 py-2 font-mono tabular-nums">{Number(b.quantity)}</td>
-                  <td className="px-3 py-2 font-mono tabular-nums">
-                    ₹{Number(b.avgUnitCost).toFixed(4)}
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      <section className="space-y-3">
+        <SectionHeader
+          title="On-hand balances"
+          description="Avg cost × qty. Filter low stock or search SKU."
+          actions={
+            <Link
+              href="/articles"
+              className="text-xs font-semibold text-primary hover:underline"
+            >
+              Manage SKUs
+            </Link>
+          }
+        />
+        <InventoryBalancesList
+          canWrite={canWrite}
+          rows={balances.map((b) => {
+            const qty = Number(b.quantity);
+            const threshold = Number(b.variant.lowStockThreshold);
+            return {
+              id: b.id,
+              sku: b.variant.sku,
+              articleName: b.variant.article.name,
+              sizeColor: `${b.variant.size}/${b.variant.color}`,
+              location: b.location.name,
+              qty,
+              avgUnitCost: Number(b.avgUnitCost),
+              lowStock: threshold > 0 && qty <= threshold,
+            };
+          })}
+        />
+      </section>
     </div>
   );
 }

@@ -3,9 +3,9 @@
 import { useState, useTransition } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Button } from '@/components/ui/button';
+import { SpinnerButton } from '@/components/shared/spinner-button';
+import { FormField } from '@/components/shared/form-field';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 
 export function LoginForm() {
   const router = useRouter();
@@ -14,6 +14,7 @@ export function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
   const [pending, startTransition] = useTransition();
 
   return (
@@ -22,6 +23,15 @@ export function LoginForm() {
       onSubmit={(e) => {
         e.preventDefault();
         setError(null);
+        const nextErrors: { email?: string; password?: string } = {};
+        if (!email.trim()) nextErrors.email = 'Email is required';
+        else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+          nextErrors.email = 'Enter a valid email';
+        }
+        if (!password) nextErrors.password = 'Password is required';
+        setFieldErrors(nextErrors);
+        if (Object.keys(nextErrors).length > 0) return;
+
         startTransition(async () => {
           const result = await signIn('credentials', {
             email,
@@ -29,7 +39,7 @@ export function LoginForm() {
             redirect: false,
           });
           if (result?.error) {
-            setError('Invalid email or password');
+            setError('Invalid email or password. Too many attempts? Wait a minute and retry.');
             return;
           }
           router.push(callbackUrl);
@@ -37,32 +47,40 @@ export function LoginForm() {
         });
       }}
     >
-      <div className="space-y-2">
-        <Label htmlFor="email">Email</Label>
+      <FormField id="email" label="Email" required error={fieldErrors.email}>
         <Input
           id="email"
           type="email"
           autoComplete="username"
           value={email}
+          aria-invalid={Boolean(fieldErrors.email)}
           onChange={(e) => setEmail(e.target.value)}
-          required
         />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="password">Password</Label>
+      </FormField>
+      <FormField id="password" label="Password" required error={fieldErrors.password}>
         <Input
           id="password"
           type="password"
           autoComplete="current-password"
           value={password}
+          aria-invalid={Boolean(fieldErrors.password)}
           onChange={(e) => setPassword(e.target.value)}
-          required
         />
-      </div>
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
-      <Button type="submit" className="w-full" disabled={pending}>
-        {pending ? 'Signing in…' : 'Sign in'}
-      </Button>
+      </FormField>
+      {error ? (
+        <p className="text-sm text-destructive" role="alert">
+          {error}
+        </p>
+      ) : null}
+      <SpinnerButton
+        type="submit"
+        size="lg"
+        className="w-full"
+        pending={pending}
+        pendingLabel="Signing in…"
+      >
+        Sign in
+      </SpinnerButton>
     </form>
   );
 }

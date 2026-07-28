@@ -172,6 +172,190 @@ export const dashboardRepository = {
     ]);
     return { brands, categories, articles, vendors, variants };
   },
+
+  async opsSummary(organizationId: string, from: Date, to: Date) {
+    const startDay = new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), from.getUTCDate()));
+    const endDay = new Date(Date.UTC(to.getUTCFullYear(), to.getUTCMonth(), to.getUTCDate()));
+    const inclusiveDays =
+      Math.round((endDay.getTime() - startDay.getTime()) / (24 * 60 * 60 * 1000)) + 1;
+    const prevEndDay = new Date(startDay);
+    prevEndDay.setUTCDate(prevEndDay.getUTCDate() - 1);
+    const prevStartDay = new Date(prevEndDay);
+    prevStartDay.setUTCDate(prevStartDay.getUTCDate() - (inclusiveDays - 1));
+    const prevFrom = prevStartDay;
+    const prevTo = new Date(
+      Date.UTC(
+        prevEndDay.getUTCFullYear(),
+        prevEndDay.getUTCMonth(),
+        prevEndDay.getUTCDate(),
+        23,
+        59,
+        59,
+        999,
+      ),
+    );
+
+    const [
+      salesInRange,
+      prevSales,
+      openBalanceSales,
+      unpaidCount,
+      lowStockBalances,
+      valuationBalances,
+      recentSales,
+    ] = await Promise.all([
+      prisma.sale.findMany({
+        where: {
+          organizationId,
+          ...active,
+          status: 'POSTED',
+          invoiceDate: { gte: from, lte: to },
+        },
+        select: {
+          id: true,
+          totalAmount: true,
+          paymentStatus: true,
+          invoiceDate: true,
+        },
+      }),
+      prisma.sale.findMany({
+        where: {
+          organizationId,
+          ...active,
+          status: 'POSTED',
+          invoiceDate: { gte: prevFrom, lte: prevTo },
+        },
+        select: { totalAmount: true },
+      }),
+      prisma.sale.findMany({
+        where: {
+          organizationId,
+          ...active,
+          status: 'POSTED',
+          paymentStatus: { in: ['UNPAID', 'PARTIAL'] },
+        },
+        select: {
+          totalAmount: true,
+          payments: { where: active, select: { amount: true } },
+        },
+      }),
+      prisma.sale.count({
+        where: {
+          organizationId,
+          ...active,
+          status: 'POSTED',
+          paymentStatus: { in: ['UNPAID', 'PARTIAL'] },
+        },
+      }),
+      prisma.inventoryBalance.findMany({
+        where: { organizationId, ...active },
+        include: { variant: { select: { lowStockThreshold: true } } },
+      }),
+      prisma.inventoryBalance.findMany({
+        where: { organizationId, ...active, quantity: { gt: 0 } },
+        select: { quantity: true, avgUnitCost: true },
+      }),
+      prisma.sale.findMany({
+        where: { organizationId, ...active, status: 'POSTED' },
+        include: { customer: { select: { name: true } } },
+        orderBy: [{ invoiceDate: 'desc' }, { createdAt: 'desc' }],
+        take: 8,
+      }),
+    ]);
+
+    let salesTotal = 0;
+    for (const s of salesInRange) {
+      salesTotal += Number(s.totalAmount);
+    }
+    salesTotal = Math.round((salesTotal + Number.EPSILON) * 100) / 100;
+
+    let previousSalesTotal = 0;
+    for (const s of prevSales) {
+      previousSalesTotal += Number(s.totalAmount);
+    }
+    previousSalesTotal = Math.round((previousSalesTotal + Number.EPSILON) * 100) / 100;
+
+    let unpaidOutstanding = 0;
+    for (const s of openBalanceSales) {
+      const paid = s.payments.reduce((sum, p) => sum + Number(p.amount), 0);
+      unpaidOutstanding += Math.max(0, Number(s.totalAmount) - paid);
+    }
+    unpaidOutstanding = Math.round((unpaidOutstanding + Number.EPSILON) * 100) / 100;
+
+    let salesDeltaPct: number | null = null;
+    if (previousSalesTotal > 0) {
+      salesDeltaPct =
+        Math.round((((salesTotal - previousSalesTotal) / previousSalesTotal) * 100 + Number.EPSILON) * 10) /
+        10;
+    } else if (salesTotal > 0) {
+      salesDeltaPct = 100;
+    }
+
+    let stockValue = 0;
+    for (const b of valuationBalances) {
+      stockValue += Number(b.quantity) * Number(b.avgUnitCost);
+    }
+    stockValue = Math.round((stockValue + Number.EPSILON) * 100) / 100;
+
+    const lowStockCount = lowStockBalances.filter((b) => {
+      const threshold = Number(b.variant.lowStockThreshold);
+      return threshold > 0 && Number(b.quantity) <= threshold;
+    }).length;
+
+    const dayMap = new Map<string, { sales: number; invoices: number }>();
+    const cursor = new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), from.getUTCDate()));
+    const endCursor = new Date(Date.UTC(to.getUTCFullYear(), to.getUTCMonth(), to.getUTCDate()));
+    while (cursor <= endCursor) {
+      const key = cursor.toISOString().slice(0, 10);
+      dayMap.set(key, { sales: 0, invoices: 0 });
+      cursor.setUTCDate(cursor.getUTCDate() + 1);
+    }
+    for (const s of salesInRange) {
+      const key = s.invoiceDate.toISOString().slice(0, 10);
+      const bucket = dayMap.get(key);
+      if (!bucket) continue;
+      bucket.sales = Math.round((bucket.sales + Number(s.totalAmount) + Number.EPSILON) * 100) / 100;
+      bucket.invoices += 1;
+    }
+
+    let paid = 0;
+    let partial = 0;
+    let unpaid = 0;
+    for (const s of salesInRange) {
+      if (s.paymentStatus === 'PAID') paid += 1;
+      else if (s.paymentStatus === 'PARTIAL') partial += 1;
+      else unpaid += 1;
+    }
+
+    return {
+      salesTotal,
+      previousSalesTotal,
+      salesDeltaPct,
+      invoiceCount: salesInRange.length,
+      unpaidCount,
+      unpaidOutstanding,
+      lowStockCount,
+      stockValue,
+      salesByDay: Array.from(dayMap.entries()).map(([date, v]) => ({
+        date,
+        sales: v.sales,
+        invoices: v.invoices,
+      })),
+      paymentMix: [
+        { status: 'PAID', count: paid },
+        { status: 'PARTIAL', count: partial },
+        { status: 'UNPAID', count: unpaid },
+      ],
+      recentSales: recentSales.map((s) => ({
+        id: s.id,
+        invoiceNo: s.invoiceNo,
+        invoiceDate: s.invoiceDate,
+        customerName: s.customer.name,
+        totalAmount: Number(s.totalAmount),
+        paymentStatus: s.paymentStatus,
+      })),
+    };
+  },
 };
 
 export const userRepository = {
@@ -181,6 +365,36 @@ export const userRepository = {
         email: email.toLowerCase(),
         deletedAt: null,
         isActive: true,
+      },
+    });
+  },
+
+  findSessionUser(id: string) {
+    return prisma.user.findFirst({
+      where: {
+        id,
+        deletedAt: null,
+        isActive: true,
+      },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        organizationId: true,
+        branchId: true,
+        isActive: true,
+      },
+    });
+  },
+
+  countActiveOwners(organizationId: string) {
+    return prisma.user.count({
+      where: {
+        organizationId,
+        role: 'OWNER',
+        isActive: true,
+        deletedAt: null,
       },
     });
   },

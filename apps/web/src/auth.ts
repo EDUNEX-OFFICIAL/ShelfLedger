@@ -5,6 +5,7 @@ import bcrypt from 'bcryptjs';
 import { loginSchema } from '@shelfledger/validators';
 import { userRepository, type UserRole } from '@shelfledger/db';
 import { authConfig } from './auth.config';
+import { rateLimitAllow } from '@/lib/rate-limit';
 
 declare module 'next-auth' {
   interface User {
@@ -72,6 +73,12 @@ export const { handlers, auth, signOut } = NextAuth({
           return null;
         }
 
+        const emailKey = parsed.data.email.trim().toLowerCase();
+        const emailLimit = rateLimitAllow(`login:email:${emailKey}`, 5, 60_000);
+        if (!emailLimit.ok) {
+          return null;
+        }
+
         const user = await userRepository.findActiveByEmail(parsed.data.email);
         if (!user) {
           return null;
@@ -105,6 +112,20 @@ export const { handlers, auth, signOut } = NextAuth({
         token.branchId = user.branchId;
         token.name = user.name;
         token.email = user.email;
+        return token;
+      }
+
+      // Invalidate JWT if user was deactivated / soft-deleted / role cleared.
+      if (token.sub) {
+        const live = await userRepository.findSessionUser(token.sub);
+        if (!live) {
+          return {};
+        }
+        token.role = live.role;
+        token.organizationId = live.organizationId;
+        token.branchId = live.branchId;
+        token.name = live.name;
+        token.email = live.email;
       }
       return token;
     },

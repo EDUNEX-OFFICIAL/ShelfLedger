@@ -30,3 +30,29 @@ export function canViewReports(role: UserRole): boolean {
 export function canSell(role: UserRole): boolean {
   return role === 'OWNER' || role === 'MANAGER' || role === 'CASHIER';
 }
+
+export function canOverrideStock(role: UserRole): boolean {
+  return role === 'OWNER' || role === 'MANAGER';
+}
+
+export function canManageCustomers(role: UserRole): boolean {
+  return role === 'OWNER' || role === 'MANAGER' || role === 'CASHIER';
+}
+
+export function canManageExpenses(role: UserRole): boolean {
+  return role === 'OWNER' || role === 'MANAGER';
+}
+
+export function canManageSettings(role: UserRole): boolean {
+  return role === 'OWNER' || role === 'MANAGER';
+}
+
+/** VIEWER is read-only across mutating surfaces. */
+export function isReadOnly(role: UserRole): boolean {
+  return role === 'VIEWER';
+}
+
+export function canCreateRole(actor: UserRole, target: UserRole): boolean {
+  if (target === 'OWNER') return actor === 'OWNER';
+  return actor === 'OWNER' || actor === 'MANAGER';
+}

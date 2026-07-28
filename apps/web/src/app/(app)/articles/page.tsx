@@ -1,10 +1,13 @@
+import Link from 'next/link';
+import { Layers } from 'lucide-react';
 import { canManageMasters } from '@shelfledger/db';
 import { requireSession } from '@/server/auth/guards';
 import { masterService } from '@/server/services/masters';
 import { PageHeader } from '@/components/shared/page-header';
+import { SectionHeader } from '@/components/shared/section-header';
+import { buttonClassName } from '@/components/ui/button';
 import { ArticleForm } from '@/features/articles/article-form';
-import { DeleteButton } from '@/components/shared/delete-button';
-import { deleteArticleAction } from '@/features/masters/actions';
+import { ArticlesList } from '@/features/articles/articles-list';
 
 export default async function ArticlesPage() {
   const user = await requireSession();
@@ -21,61 +24,66 @@ export default async function ArticlesPage() {
       <PageHeader
         title="Articles"
         description="Styles with size × color variants. Stock quantity lives in the ledger, not here."
+        actions={
+          canWrite ? (
+            <a href="#new-article" className={buttonClassName({ size: 'lg' })}>
+              <Layers className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+              Add article
+            </a>
+          ) : null
+        }
       />
-      <ArticleForm
-        canWrite={canWrite}
-        brands={brands.map((b) => ({ id: b.id, name: b.name }))}
-        categories={categories.map((c) => ({ id: c.id, name: c.name }))}
-        taxRates={taxRates.map((t) => ({ id: t.id, name: t.name }))}
-      />
-      <div className="overflow-hidden rounded-md border border-border bg-white">
-        <table className="w-full text-left text-sm">
-          <thead className="border-b border-border bg-muted/60 text-muted-foreground">
-            <tr>
-              <th className="px-3 py-2 font-medium">Article</th>
-              <th className="px-3 py-2 font-medium">Brand</th>
-              <th className="px-3 py-2 font-medium">Category</th>
-              <th className="px-3 py-2 font-medium">Variants</th>
-              <th className="px-3 py-2 font-medium text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {articles.length === 0 ? (
-              <tr>
-                <td className="px-3 py-6 text-muted-foreground" colSpan={5}>
-                  No articles yet.
-                </td>
-              </tr>
-            ) : (
-              articles.map((article) => (
-                <tr key={article.id} className="border-b border-border last:border-0">
-                  <td className="px-3 py-2">
-                    <div className="font-medium">{article.name}</div>
-                    <div className="font-mono text-xs text-muted-foreground">{article.articleCode}</div>
-                  </td>
-                  <td className="px-3 py-2">{article.brand.name}</td>
-                  <td className="px-3 py-2">{article.category.name}</td>
-                  <td className="px-3 py-2 font-mono text-xs">
-                    {article.variants.length} —{' '}
-                    {article.variants
-                      .slice(0, 3)
-                      .map((v) => `${v.size}/${v.color}`)
-                      .join(', ')}
-                    {article.variants.length > 3 ? '…' : ''}
-                  </td>
-                  <td className="px-3 py-2">
-                    {canWrite ? (
-                      <div className="flex justify-end">
-                        <DeleteButton action={deleteArticleAction.bind(null, article.id)} />
-                      </div>
-                    ) : null}
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+
+      {canWrite ? (
+        <section id="new-article" className="scroll-mt-24 space-y-3">
+          <SectionHeader
+            title="Create article"
+            description="Requires a brand and category. Add one or more variants."
+            actions={
+              <div className="flex flex-wrap gap-2">
+                <Link
+                  href="/brands"
+                  className="text-xs font-semibold text-primary hover:underline"
+                >
+                  Brands
+                </Link>
+                <Link
+                  href="/categories"
+                  className="text-xs font-semibold text-primary hover:underline"
+                >
+                  Categories
+                </Link>
+              </div>
+            }
+          />
+          <ArticleForm
+            canWrite={canWrite}
+            brands={brands.map((b) => ({ id: b.id, name: b.name }))}
+            categories={categories.map((c) => ({ id: c.id, name: c.name }))}
+            taxRates={taxRates.map((t) => ({ id: t.id, name: t.name }))}
+          />
+        </section>
+      ) : null}
+
+      <section className="space-y-3">
+        <SectionHeader title="All articles" description="Search by name, code, or brand." />
+        <ArticlesList
+          canWrite={canWrite}
+          rows={articles.map((article) => ({
+            id: article.id,
+            name: article.name,
+            articleCode: article.articleCode,
+            brandName: article.brand.name,
+            categoryName: article.category.name,
+            variantCount: article.variants.length,
+            variantSummary:
+              article.variants
+                .slice(0, 3)
+                .map((v) => `${v.size}/${v.color}`)
+                .join(', ') + (article.variants.length > 3 ? '…' : ''),
+          }))}
+        />
+      </section>
     </div>
   );
 }

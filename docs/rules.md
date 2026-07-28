@@ -96,6 +96,7 @@ else:
 5. Void sale: reverse stock via `SALE_RETURN` movements linked to void; mark sale `VOIDED`; do not delete.
 6. Discounts cannot make line net &lt; 0.
 7. Round-off line (±1) allowed on header per settings.
+8. **Quick Sale** may create+post in one staff action; same invariants as draft→post (no stock bypass). Draft form remains for complex bills.
 
 ---
 
