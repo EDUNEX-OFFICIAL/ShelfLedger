@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import type { ReactNode } from 'react';
 import { EmptyState } from '@/components/shared/empty-state';
@@ -17,6 +18,7 @@ export function ResponsiveDataList<T extends { id: string }>({
   mobileTitle,
   mobileMeta,
   mobileTrailing,
+  mobileHref,
   actions,
   emptyTitle = 'No data found',
   emptyDescription,
@@ -32,6 +34,8 @@ export function ResponsiveDataList<T extends { id: string }>({
   mobileMeta?: (row: T) => ReactNode;
   /** High-priority signal opposite the title (status, amount) */
   mobileTrailing?: (row: T) => ReactNode;
+  /** When set, the whole mobile chip navigates here (title should be plain text). */
+  mobileHref?: (row: T) => string | null | undefined;
   actions?: (row: T) => ReactNode;
   emptyTitle?: string;
   emptyDescription?: string;
@@ -99,42 +103,60 @@ export function ResponsiveDataList<T extends { id: string }>({
 
       {/* Mobile chips */}
       <ul className="divide-y divide-border md:hidden">
-        {rows.map((row) => (
-          <li key={row.id} className="space-y-3 p-3.5">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-[15px] font-semibold tracking-tight text-foreground">
-                  {mobileTitle(row)}
+        {rows.map((row) => {
+          const href = mobileHref?.(row);
+          const body = (
+            <>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-[15px] font-semibold tracking-tight text-foreground">
+                    {mobileTitle(row)}
+                  </div>
+                  {mobileMeta ? (
+                    <div className="mt-0.5 truncate text-xs leading-snug text-muted-foreground">
+                      {mobileMeta(row)}
+                    </div>
+                  ) : null}
                 </div>
-                {mobileMeta ? (
-                  <div className="mt-0.5 truncate text-xs leading-snug text-muted-foreground">
-                    {mobileMeta(row)}
-                  </div>
-                ) : null}
+                <div className="flex shrink-0 items-start gap-2">
+                  {mobileTrailing ? (
+                    <div className="pt-0.5">{mobileTrailing(row)}</div>
+                  ) : null}
+                  {actions && !href ? <div className="flex gap-1">{actions(row)}</div> : null}
+                </div>
               </div>
-              <div className="flex shrink-0 items-start gap-2">
-                {mobileTrailing ? (
-                  <div className="pt-0.5">{mobileTrailing(row)}</div>
-                ) : null}
-                {actions ? <div className="flex gap-1">{actions(row)}</div> : null}
-              </div>
-            </div>
-            {mobileCols.length > 0 ? (
-              <dl className="grid grid-cols-2 gap-x-3 gap-y-2.5 border-t border-border/70 pt-2.5">
-                {mobileCols.map((col) => (
-                  <div key={col.id} className="min-w-0">
-                    <dt className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/75">
-                      {col.header}
-                    </dt>
-                    <dd className="mt-1 text-sm font-medium leading-snug text-foreground">
-                      {col.cell(row)}
-                    </dd>
-                  </div>
-                ))}
-              </dl>
-            ) : null}
-          </li>
-        ))}
+              {mobileCols.length > 0 ? (
+                <dl className="grid grid-cols-2 gap-x-3 gap-y-2.5 border-t border-border/70 pt-2.5">
+                  {mobileCols.map((col) => (
+                    <div key={col.id} className="min-w-0">
+                      <dt className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/75">
+                        {col.header}
+                      </dt>
+                      <dd className="mt-1 text-sm font-medium leading-snug text-foreground">
+                        {col.cell(row)}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              ) : null}
+            </>
+          );
+
+          return (
+            <li key={row.id}>
+              {href ? (
+                <Link
+                  href={href}
+                  className="block space-y-3 p-3.5 transition-colors active:bg-muted/50"
+                >
+                  {body}
+                </Link>
+              ) : (
+                <div className="space-y-3 p-3.5">{body}</div>
+              )}
+            </li>
+          );
+        })}
       </ul>
     </div>
   );

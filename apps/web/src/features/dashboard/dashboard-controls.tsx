@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, type ReactNode } from 'react';
-import { BarChart3, ChevronDown, Layers, Zap } from 'lucide-react';
+import { BarChart3, ChevronDown, Layers, MoreHorizontal, Zap } from 'lucide-react';
 import { buttonClassName } from '@/components/ui/button';
 import { SegmentedControl } from '@/components/shared/segmented-control';
 import { cn } from '@/lib/utils';
@@ -25,7 +25,7 @@ type DashboardPrefs = {
 
 const DEFAULT_PREFS: DashboardPrefs = {
   showCharts: true,
-  showMasters: true,
+  showMasters: false,
 };
 
 function readPrefs(): DashboardPrefs {
@@ -36,7 +36,7 @@ function readPrefs(): DashboardPrefs {
     const parsed = JSON.parse(raw) as Partial<DashboardPrefs>;
     return {
       showCharts: parsed.showCharts ?? true,
-      showMasters: parsed.showMasters ?? true,
+      showMasters: parsed.showMasters ?? false,
     };
   } catch {
     return DEFAULT_PREFS;
@@ -50,7 +50,7 @@ export function DashboardRangeFilter({ range }: { range: DashboardRange }) {
       ariaLabel="Dashboard period"
       value={range}
       options={RANGE_OPTIONS}
-      size="md"
+      size="sm"
       onChange={(value) => {
         const qs = new URLSearchParams({ range: value });
         router.push(`/dashboard?${qs.toString()}`);
@@ -81,6 +81,7 @@ export function DashboardQuickActions() {
           type="button"
           aria-expanded={moreOpen}
           aria-haspopup="menu"
+          aria-label="More actions"
           onClick={() => setMoreOpen((o) => !o)}
           className={buttonClassName({ variant: 'secondary', size: 'md' })}
         >
@@ -127,7 +128,7 @@ export function DashboardQuickActions() {
   );
 }
 
-export function DashboardPanelToggles({
+function DashboardCustomizeMenu({
   showCharts,
   showMasters,
   onToggleCharts,
@@ -138,34 +139,63 @@ export function DashboardPanelToggles({
   onToggleCharts: () => void;
   onToggleMasters: () => void;
 }) {
+  const [open, setOpen] = useState(false);
+
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="relative">
       <button
         type="button"
-        aria-pressed={showCharts}
-        onClick={onToggleCharts}
+        aria-expanded={open}
+        aria-haspopup="menu"
+        onClick={() => setOpen((o) => !o)}
         className={buttonClassName({
-          variant: showCharts ? 'secondary' : 'ghost',
+          variant: 'ghost',
           size: 'sm',
-          className: cn(!showCharts && 'text-muted-foreground'),
+          className: 'text-muted-foreground',
         })}
       >
-        <BarChart3 className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
-        {showCharts ? 'Hide charts' : 'Show charts'}
+        <MoreHorizontal className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
+        Customize
       </button>
-      <button
-        type="button"
-        aria-pressed={showMasters}
-        onClick={onToggleMasters}
-        className={buttonClassName({
-          variant: showMasters ? 'secondary' : 'ghost',
-          size: 'sm',
-          className: cn(!showMasters && 'text-muted-foreground'),
-        })}
-      >
-        <Layers className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
-        {showMasters ? 'Hide catalog' : 'Show catalog'}
-      </button>
+      {open ? (
+        <>
+          <button
+            type="button"
+            className="fixed inset-0 z-40 cursor-default"
+            aria-label="Close customize menu"
+            onClick={() => setOpen(false)}
+          />
+          <div
+            role="menu"
+            className="absolute left-0 z-50 mt-1.5 min-w-[12.5rem] overflow-hidden rounded-lg border border-border/80 bg-card py-1 shadow-md sm:left-auto sm:right-0"
+          >
+            <button
+              type="button"
+              role="menuitemcheckbox"
+              aria-checked={showCharts}
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-foreground hover:bg-muted"
+              onClick={() => {
+                onToggleCharts();
+              }}
+            >
+              <BarChart3 className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.75} aria-hidden />
+              <span className="flex-1">{showCharts ? 'Hide charts' : 'Show charts'}</span>
+            </button>
+            <button
+              type="button"
+              role="menuitemcheckbox"
+              aria-checked={showMasters}
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-foreground hover:bg-muted"
+              onClick={() => {
+                onToggleMasters();
+              }}
+            >
+              <Layers className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.75} aria-hidden />
+              <span className="flex-1">{showMasters ? 'Hide catalog' : 'Show catalog'}</span>
+            </button>
+          </div>
+        </>
+      ) : null}
     </div>
   );
 }
@@ -193,16 +223,18 @@ export function DashboardOptionalSections({
 
   return (
     <div className="space-y-6">
-      <DashboardPanelToggles
-        showCharts={prefs.showCharts}
-        showMasters={prefs.showMasters}
-        onToggleCharts={() =>
-          setPrefs((p) => ({ ...p, showCharts: !p.showCharts }))
-        }
-        onToggleMasters={() =>
-          setPrefs((p) => ({ ...p, showMasters: !p.showMasters }))
-        }
-      />
+      <div className="flex justify-end">
+        <DashboardCustomizeMenu
+          showCharts={prefs.showCharts}
+          showMasters={prefs.showMasters}
+          onToggleCharts={() =>
+            setPrefs((p) => ({ ...p, showCharts: !p.showCharts }))
+          }
+          onToggleMasters={() =>
+            setPrefs((p) => ({ ...p, showMasters: !p.showMasters }))
+          }
+        />
+      </div>
 
       {prefs.showCharts ? charts : null}
       {prefs.showMasters ? masters : null}

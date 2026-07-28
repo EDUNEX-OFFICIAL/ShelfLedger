@@ -1,9 +1,11 @@
 'use client';
 
+import Link from 'next/link';
 import { FilteredDataList } from '@/components/shared/filtered-data-list';
 import { SkuText } from '@/components/shared/money-text';
 import { Badge } from '@/components/ui/badge';
 import { buttonClassName } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 export type BalanceRow = {
   id: string;
@@ -19,48 +21,80 @@ export type BalanceRow = {
 export function InventoryBalancesList({
   rows,
   canWrite = false,
+  initialStock,
 }: {
   rows: BalanceRow[];
   canWrite?: boolean;
+  initialStock?: 'low' | 'ok';
 }) {
   return (
     <FilteredDataList
       rows={rows}
-      searchPlaceholder="Search SKU, article, location…"
+      searchPlaceholder="Search SKU, article, size, location…"
       searchFn={(r, q) =>
         r.sku.toLowerCase().includes(q) ||
         r.articleName.toLowerCase().includes(q) ||
+        r.sizeColor.toLowerCase().includes(q) ||
         r.location.toLowerCase().includes(q)
       }
+      initialFilters={initialStock ? { stock: initialStock } : undefined}
       filters={[
         {
           id: 'stock',
           label: 'Stock',
           options: [
             { value: 'low', label: 'Low stock' },
-            { value: 'ok', label: 'OK' },
+            { value: 'ok', label: 'Healthy' },
           ],
           predicate: (r, v) => (v === 'low' ? r.lowStock : !r.lowStock),
         },
       ]}
       emptyTitle="No stock balances yet"
-      emptyDescription="Post opening stock or a purchase to create balances."
+      emptyDescription="Post opening stock or a purchase to create on-hand balances via the ledger."
       emptyAction={
         canWrite ? (
-          <a href="#opening-stock" className={buttonClassName({ size: 'md' })}>
-            Opening stock
-          </a>
+          <div className="flex flex-wrap justify-center gap-2">
+            <Link href="/articles" className={buttonClassName({ variant: 'secondary', size: 'md' })}>
+              Articles / SKUs
+            </Link>
+            <a href="#opening-stock" className={buttonClassName({ size: 'md' })}>
+              Opening stock
+            </a>
+          </div>
         ) : undefined
       }
-      mobileTitle={(r) => r.sku}
-      mobileMeta={(r) =>
-        `${r.articleName} · qty ${r.qty}${r.lowStock ? ' · Low' : ''}`
-      }
+      mobileTitle={(r) => (
+        <span className="font-mono text-[15px] tracking-tight">{r.sku}</span>
+      )}
+      mobileMeta={(r) => `${r.articleName} · ${r.sizeColor} · ${r.location}`}
+      mobileTrailing={(r) => (
+        <div className="flex flex-col items-end gap-1">
+          <span
+            className={cn(
+              'font-mono text-base font-semibold tabular-nums',
+              r.lowStock ? 'text-destructive' : 'text-foreground',
+            )}
+          >
+            {r.qty}
+          </span>
+          {r.lowStock ? (
+            <Badge variant="warning" className="text-[10px]">
+              Low
+            </Badge>
+          ) : null}
+        </div>
+      )}
       columns={[
-        { id: 'sku', header: 'SKU', cell: (r) => <SkuText value={r.sku} /> },
+        {
+          id: 'sku',
+          header: 'SKU',
+          mobile: false,
+          cell: (r) => <SkuText value={r.sku} />,
+        },
         {
           id: 'article',
           header: 'Article',
+          mobile: false,
           cell: (r) => (
             <span>
               {r.articleName}{' '}
@@ -73,25 +107,47 @@ export function InventoryBalancesList({
             </span>
           ),
         },
-        { id: 'location', header: 'Location', cell: (r) => r.location },
+        {
+          id: 'location',
+          header: 'Location',
+          mobile: false,
+          cell: (r) => r.location,
+        },
         {
           id: 'qty',
           header: 'Qty',
+          mobile: false,
           cell: (r) => (
-            <span className="font-mono text-sm tabular-nums">{r.qty}</span>
+            <span
+              className={cn(
+                'font-mono text-sm font-semibold tabular-nums',
+                r.lowStock && 'text-destructive',
+              )}
+            >
+              {r.qty}
+            </span>
           ),
         },
         {
           id: 'avg',
           header: 'Avg cost',
+          mobile: false,
           className: 'text-right',
           cell: (r) => (
-            <span className="font-mono text-sm tabular-nums">
-              ₹{r.avgUnitCost.toFixed(4)}
+            <span className="font-mono text-sm tabular-nums" title={`₹${r.avgUnitCost.toFixed(4)}`}>
+              ₹{r.avgUnitCost.toFixed(2)}
             </span>
           ),
         },
       ]}
+      actions={(r) => (
+        <Link
+          href={`/stock-ledger?sku=${encodeURIComponent(r.sku)}`}
+          className={buttonClassName({ variant: 'secondary', size: 'sm' })}
+        >
+          Ledger
+        </Link>
+      )}
     />
   );
 }

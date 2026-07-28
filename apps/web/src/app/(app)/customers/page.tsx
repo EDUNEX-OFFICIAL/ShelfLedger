@@ -14,11 +14,14 @@ export default async function CustomersPage() {
   const canDelete = canManageMasters(user.role);
   const customers = await customerService.list(user);
 
+  const namedCount = customers.filter((c) => !c.isWalkIn).length;
+  const withPhone = customers.filter((c) => !c.isWalkIn && c.phone).length;
+
   return (
     <div className="space-y-6">
       <PageHeader
         title="Customers"
-        description="Walk-in plus named customers. Phone unique per shop when set."
+        description="Find by phone for WhatsApp and offers. Walk-in stays for anonymous counter bills."
         actions={
           canWrite ? (
             <a href="#new-customer" className={buttonClassName({ size: 'lg' })}>
@@ -29,18 +32,23 @@ export default async function CustomersPage() {
         }
       />
 
-      {canWrite ? (
-        <section id="new-customer" className="scroll-mt-24 space-y-3">
-          <SectionHeader
-            title="Create customer"
-            description="Named buyers for invoices, WhatsApp, and offers."
-          />
-          <CustomerForm canWrite={canWrite} />
-        </section>
+      {customers.length > 0 ? (
+        <p className="text-xs text-muted-foreground">
+          <span className="font-medium text-foreground">{namedCount}</span> named
+          {withPhone > 0 ? (
+            <>
+              {' · '}
+              <span className="font-medium text-foreground">{withPhone}</span> with phone
+            </>
+          ) : null}
+        </p>
       ) : null}
 
-      <section className="space-y-3">
-        <SectionHeader title="All customers" />
+      <section id="all-customers" className="scroll-mt-24 space-y-3">
+        <SectionHeader
+          title="All customers"
+          description="Search name or phone. Tap a number to call."
+        />
         <CustomersList
           canWrite={canWrite}
           canDelete={canDelete}
@@ -53,6 +61,16 @@ export default async function CustomersPage() {
           }))}
         />
       </section>
+
+      {canWrite ? (
+        <section id="new-customer" className="scroll-mt-24 space-y-3">
+          <SectionHeader
+            title="Add customer"
+            description="Name + phone first. GSTIN and address are optional for B2B."
+          />
+          <CustomerForm canWrite={canWrite} />
+        </section>
+      ) : null}
     </div>
   );
 }

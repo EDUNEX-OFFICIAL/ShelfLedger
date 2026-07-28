@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Layers } from 'lucide-react';
+import { Layers, Package } from 'lucide-react';
 import { canManageMasters } from '@shelfledger/db';
 import { requireSession } from '@/server/auth/guards';
 import { masterService } from '@/server/services/masters';
@@ -19,56 +19,70 @@ export default async function ArticlesPage() {
     masterService.listTaxRates(user),
   ]);
 
+  const totalVariants = articles.reduce((n, a) => n + a.variants.length, 0);
+  const brandNames = Array.from(new Set(articles.map((a) => a.brand.name))).sort((a, b) =>
+    a.localeCompare(b),
+  );
+  const categoryNames = Array.from(new Set(articles.map((a) => a.category.name))).sort((a, b) =>
+    a.localeCompare(b),
+  );
+
   return (
     <div className="space-y-6">
       <PageHeader
         title="Articles"
-        description="Styles with size × color variants. Stock quantity lives in the ledger, not here."
+        description="Footwear styles with size × color SKUs. Quantity lives in Inventory / stock ledger — not on this page."
         actions={
-          canWrite ? (
-            <a href="#new-article" className={buttonClassName({ size: 'lg' })}>
-              <Layers className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-              Add article
-            </a>
-          ) : null
+          <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:justify-end">
+            {canWrite ? (
+              <a href="#new-article" className={buttonClassName({ size: 'lg' })}>
+                <Layers className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+                Add article
+              </a>
+            ) : null}
+            <Link
+              href="/inventory"
+              className={buttonClassName({ variant: 'secondary', size: 'md' })}
+            >
+              <Package className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+              Stock
+            </Link>
+          </div>
         }
       />
 
-      {canWrite ? (
-        <section id="new-article" className="scroll-mt-24 space-y-3">
-          <SectionHeader
-            title="Create article"
-            description="Requires a brand and category. Add one or more variants."
-            actions={
-              <div className="flex flex-wrap gap-2">
-                <Link
-                  href="/brands"
-                  className="text-xs font-semibold text-primary hover:underline"
-                >
-                  Brands
-                </Link>
-                <Link
-                  href="/categories"
-                  className="text-xs font-semibold text-primary hover:underline"
-                >
-                  Categories
-                </Link>
-              </div>
-            }
-          />
-          <ArticleForm
-            canWrite={canWrite}
-            brands={brands.map((b) => ({ id: b.id, name: b.name }))}
-            categories={categories.map((c) => ({ id: c.id, name: c.name }))}
-            taxRates={taxRates.map((t) => ({ id: t.id, name: t.name }))}
-          />
-        </section>
+      {articles.length > 0 ? (
+        <p className="text-xs text-muted-foreground">
+          <span className="font-medium text-foreground">{articles.length}</span> style
+          {articles.length === 1 ? '' : 's'}
+          {' · '}
+          <span className="font-medium text-foreground">{totalVariants}</span> SKU
+          {totalVariants === 1 ? '' : 's'}
+        </p>
       ) : null}
 
-      <section className="space-y-3">
-        <SectionHeader title="All articles" description="Search by name, code, or brand." />
+      <section id="all-articles" className="scroll-mt-24 space-y-3">
+        <SectionHeader
+          title="All articles"
+          description="Search by name, article code, or SKU. Filter by brand or category."
+          actions={
+            <div className="flex flex-wrap gap-2">
+              <Link href="/brands" className="text-xs font-semibold text-primary hover:underline">
+                Brands
+              </Link>
+              <Link
+                href="/categories"
+                className="text-xs font-semibold text-primary hover:underline"
+              >
+                Categories
+              </Link>
+            </div>
+          }
+        />
         <ArticlesList
           canWrite={canWrite}
+          brands={brandNames}
+          categories={categoryNames}
           rows={articles.map((article) => ({
             id: article.id,
             name: article.name,
@@ -81,9 +95,27 @@ export default async function ArticlesPage() {
                 .slice(0, 3)
                 .map((v) => `${v.size}/${v.color}`)
                 .join(', ') + (article.variants.length > 3 ? '…' : ''),
+            searchBlob: article.variants
+              .map((v) => `${v.sku} ${v.barcode ?? ''} ${v.size} ${v.color}`)
+              .join(' '),
           }))}
         />
       </section>
+
+      {canWrite ? (
+        <section id="new-article" className="scroll-mt-24 space-y-3">
+          <SectionHeader
+            title="Add article"
+            description="Style + brand/category, then size × color variants (SKU, MRP, sell price)."
+          />
+          <ArticleForm
+            canWrite={canWrite}
+            brands={brands.map((b) => ({ id: b.id, name: b.name }))}
+            categories={categories.map((c) => ({ id: c.id, name: c.name }))}
+            taxRates={taxRates.map((t) => ({ id: t.id, name: t.name }))}
+          />
+        </section>
+      ) : null}
     </div>
   );
 }

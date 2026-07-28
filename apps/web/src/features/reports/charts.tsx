@@ -91,9 +91,11 @@ export function SalesTrendChart({
   return (
     <ChartCard title={title} description={description} className="min-w-0">
       {empty ? (
-        <p className="flex h-[180px] items-center justify-center text-sm text-muted-foreground md:h-[220px]">
-          No posted sales in this period.
-        </p>
+        <div className="flex h-[180px] flex-col items-center justify-center gap-2 px-4 text-center md:h-[220px]">
+          <p className="text-sm text-muted-foreground">
+            No sales in this period — punch a Quick Sale to see the trend.
+          </p>
+        </div>
       ) : (
         <ChartContainer
           config={salesTrendConfig}
@@ -169,14 +171,16 @@ export function PaymentMixChart({
 
   return (
     <ChartCard
-      title="Payment mix"
-      description="Posted invoices in selected period"
+      title="Payment status"
+      description="Invoice payment status in selected period (Paid / Partial / Unpaid)"
       className="min-w-0"
     >
       {total === 0 ? (
-        <p className="flex h-[180px] items-center justify-center text-sm text-muted-foreground md:h-[220px]">
-          No invoices to chart.
-        </p>
+        <div className="flex h-[180px] flex-col items-center justify-center gap-2 px-4 text-center md:h-[220px]">
+          <p className="text-sm text-muted-foreground">
+            No invoices to chart — punch a Quick Sale to get started.
+          </p>
+        </div>
       ) : (
         <ChartContainer
           config={paymentConfig}

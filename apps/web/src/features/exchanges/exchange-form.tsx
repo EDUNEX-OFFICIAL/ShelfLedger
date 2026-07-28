@@ -1,6 +1,8 @@
 'use client';
 
 import { useMemo, useState, useTransition } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
@@ -39,15 +41,21 @@ export function ExchangeForm({
   variants: VariantOption[];
   taxRates: Option[];
 }) {
-  const [customerId, setCustomerId] = useState(customers[0]?.id ?? '');
+  const router = useRouter();
+  const [customerId, setCustomerId] = useState('');
   const [originalSaleId, setOriginalSaleId] = useState('');
   const [notes, setNotes] = useState('');
   const [returnLines, setReturnLines] = useState<ReturnLine[]>([
     { originalSaleLineId: '', qty: '1' },
   ]);
   const [replaceLines, setReplaceLines] = useState<ReplaceLine[]>([]);
-  const [message, setMessage] = useState<string | null>(null);
+  const [message, setMessage] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null);
   const [pending, startTransition] = useTransition();
+
+  const filteredSales = useMemo(() => {
+    if (!customerId) return sales;
+    return sales.filter((s) => s.customerId === customerId);
+  }, [sales, customerId]);
 
   const saleLines = useMemo(
     () => sales.find((s) => s.id === originalSaleId)?.lines ?? [],
@@ -65,8 +73,14 @@ export function ExchangeForm({
         e.preventDefault();
         setMessage(null);
         startTransition(async () => {
+          const sale = sales.find((s) => s.id === originalSaleId);
+          const resolvedCustomerId = sale?.customerId || customerId;
+          if (!resolvedCustomerId) {
+            setMessage({ tone: 'err', text: 'Select an original invoice' });
+            return;
+          }
           const result = await createExchangeAction({
-            customerId,
+            customerId: resolvedCustomerId,
             originalSaleId,
             notes,
             returnLines: returnLines.map((l) => ({
@@ -81,37 +95,45 @@ export function ExchangeForm({
             })),
           });
           if (!result.ok) {
-            setMessage(result.error);
+            setMessage({ tone: 'err', text: result.error });
             return;
           }
-          setMessage(`Exchange posted (${result.data.id.slice(0, 8)}…).`);
+          setMessage({
+            tone: 'ok',
+            text: 'Exchange posted — stock updated for returns and replacements.',
+          });
+          setCustomerId('');
           setOriginalSaleId('');
           setNotes('');
           setReturnLines([{ originalSaleLineId: '', qty: '1' }]);
           setReplaceLines([]);
+          router.refresh();
         });
       }}
     >
       <SurfaceCard padding="none" className="overflow-hidden">
         <div className="space-y-5 p-5">
           {blocked ? (
-            <p className="rounded-lg border border-dashed border-border/80 bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
-              Post a sale first — exchanges need an original invoice.
-            </p>
+            <div className="space-y-2 rounded-lg border border-dashed border-border/80 bg-muted/30 px-3 py-2.5 text-sm text-muted-foreground">
+              <p>Post a sale first — exchanges need an original invoice.</p>
+              <div className="flex flex-wrap gap-3">
+                <Link href="/sales/quick" className="font-semibold text-primary hover:underline">
+                  Quick Sale
+                </Link>
+                <Link href="/sales" className="font-semibold text-primary hover:underline">
+                  Sales
+                </Link>
+              </div>
+            </div>
           ) : null}
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <FormField id="ex-customer" label="Customer" required>
-              <Select
-                id="ex-customer"
-                value={customerId}
-                onValueChange={setCustomerId}
-                placeholder="Select"
-                required
-                options={customers.map((c) => ({ value: c.id, label: c.label }))}
-              />
-            </FormField>
-            <FormField id="ex-sale" label="Original posted sale" required>
+            <FormField
+              id="ex-sale"
+              label="Original invoice"
+              required
+              hint="Bill in hand — pick the posted sale"
+            >
               <Select
                 id="ex-sale"
                 value={originalSaleId}
@@ -121,10 +143,32 @@ export function ExchangeForm({
                   if (sale) setCustomerId(sale.customerId);
                   setReturnLines([{ originalSaleLineId: '', qty: '1' }]);
                 }}
-                placeholder="Select invoice"
+                placeholder="Search invoice…"
                 required
                 searchable
-                options={sales.map((s) => ({ value: s.id, label: s.label }))}
+                options={filteredSales.map((s) => ({ value: s.id, label: s.label }))}
+              />
+            </FormField>
+            <FormField
+              id="ex-customer"
+              label="Customer"
+              hint="Optional filter — invoice fills this automatically"
+            >
+              <Select
+                id="ex-customer"
+                value={customerId}
+                onValueChange={(id) => {
+                  setCustomerId(id);
+                  const sale = sales.find((s) => s.id === originalSaleId);
+                  if (sale && sale.customerId !== id) {
+                    setOriginalSaleId('');
+                    setReturnLines([{ originalSaleLineId: '', qty: '1' }]);
+                  }
+                }}
+                placeholder="All customers"
+                allowClear
+                clearLabel="All customers"
+                options={customers.map((c) => ({ value: c.id, label: c.label }))}
               />
             </FormField>
           </div>
@@ -135,12 +179,15 @@ export function ExchangeForm({
                 <h3 className="text-sm font-semibold tracking-tight text-foreground">
                   Return lines
                 </h3>
-                <p className="text-xs text-muted-foreground">Items coming back into stock</p>
+                <p className="text-xs text-muted-foreground">
+                  Items coming back into stock (required)
+                </p>
               </div>
               <Button
                 type="button"
                 size="sm"
                 variant="secondary"
+                disabled={!originalSaleId}
                 onClick={() =>
                   setReturnLines((rows) => [...rows, { originalSaleLineId: '', qty: '1' }])
                 }
@@ -148,45 +195,49 @@ export function ExchangeForm({
                 Add return
               </Button>
             </div>
-            {returnLines.map((line, index) => (
-              <div
-                key={index}
-                className="grid gap-3 rounded-xl border border-border/70 bg-muted/30 p-3.5 sm:grid-cols-2"
-              >
-                <FormField id={`ex-ret-line-${index}`} label="Original sale line" required>
-                  <Select
-                    id={`ex-ret-line-${index}`}
-                    value={line.originalSaleLineId}
-                    onValueChange={(originalSaleLineId) =>
-                      setReturnLines((rows) =>
-                        rows.map((r, i) => (i === index ? { ...r, originalSaleLineId } : r)),
-                      )
-                    }
-                    placeholder="Select line"
-                    required
-                    options={saleLines.map((l) => ({
-                      value: l.id,
-                      label: `${l.label} (sold ${l.qty})`,
-                    }))}
-                  />
-                </FormField>
-                <FormField id={`ex-ret-qty-${index}`} label="Qty" required>
-                  <Input
-                    id={`ex-ret-qty-${index}`}
-                    type="number"
-                    min="0.001"
-                    step="1"
-                    value={line.qty}
-                    onChange={(e) =>
-                      setReturnLines((rows) =>
-                        rows.map((r, i) => (i === index ? { ...r, qty: e.target.value } : r)),
-                      )
-                    }
-                    required
-                  />
-                </FormField>
-              </div>
-            ))}
+            {!originalSaleId ? (
+              <p className="text-xs text-muted-foreground">Select an invoice to choose return lines.</p>
+            ) : (
+              returnLines.map((line, index) => (
+                <div
+                  key={index}
+                  className="grid gap-3 rounded-xl border border-border/70 bg-muted/30 p-3.5 sm:grid-cols-2"
+                >
+                  <FormField id={`ex-ret-line-${index}`} label="Original sale line" required>
+                    <Select
+                      id={`ex-ret-line-${index}`}
+                      value={line.originalSaleLineId}
+                      onValueChange={(originalSaleLineId) =>
+                        setReturnLines((rows) =>
+                          rows.map((r, i) => (i === index ? { ...r, originalSaleLineId } : r)),
+                        )
+                      }
+                      placeholder="Select line"
+                      required
+                      options={saleLines.map((l) => ({
+                        value: l.id,
+                        label: `${l.label} (sold ${l.qty})`,
+                      }))}
+                    />
+                  </FormField>
+                  <FormField id={`ex-ret-qty-${index}`} label="Qty returning" required>
+                    <Input
+                      id={`ex-ret-qty-${index}`}
+                      type="number"
+                      min="0.001"
+                      step="1"
+                      value={line.qty}
+                      onChange={(e) =>
+                        setReturnLines((rows) =>
+                          rows.map((r, i) => (i === index ? { ...r, qty: e.target.value } : r)),
+                        )
+                      }
+                      required
+                    />
+                  </FormField>
+                </div>
+              ))
+            )}
           </div>
 
           <div className="space-y-3">
@@ -195,7 +246,9 @@ export function ExchangeForm({
                 <h3 className="text-sm font-semibold tracking-tight text-foreground">
                   Replacement lines
                 </h3>
-                <p className="text-xs text-muted-foreground">Optional — price excl. GST</p>
+                <p className="text-xs text-muted-foreground">
+                  Optional size/style swap — leave empty for return-only
+                </p>
               </div>
               <Button
                 type="button"
@@ -211,104 +264,122 @@ export function ExchangeForm({
                 Add replace
               </Button>
             </div>
-            {replaceLines.map((line, index) => (
-              <div
-                key={index}
-                className="grid gap-3 rounded-xl border border-border/70 bg-muted/30 p-3.5 lg:grid-cols-4"
-              >
-                <FormField
-                  id={`ex-rep-var-${index}`}
-                  label="Variant"
-                  required
-                  className="lg:col-span-2"
+            {replaceLines.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                No replacements — this will be a return only.
+              </p>
+            ) : (
+              replaceLines.map((line, index) => (
+                <div
+                  key={index}
+                  className="grid gap-3 rounded-xl border border-border/70 bg-muted/30 p-3.5 lg:grid-cols-4"
                 >
-                  <Select
+                  <FormField
                     id={`ex-rep-var-${index}`}
-                    value={line.variantId}
-                    onValueChange={(id) => {
-                      const v = variants.find((x) => x.id === id);
-                      setReplaceLines((rows) =>
-                        rows.map((r, i) =>
-                          i === index
-                            ? {
-                                ...r,
-                                variantId: id,
-                                unitPrice: v ? String(v.sellingPrice) : r.unitPrice,
-                              }
-                            : r,
-                        ),
-                      );
-                    }}
-                    placeholder="Select SKU"
+                    label="Variant"
                     required
-                    searchable
-                    options={variants.map((v) => ({ value: v.id, label: v.label }))}
-                  />
-                </FormField>
-                <FormField id={`ex-rep-qty-${index}`} label="Qty" required>
-                  <Input
-                    id={`ex-rep-qty-${index}`}
-                    type="number"
-                    min="0.001"
-                    value={line.qty}
-                    onChange={(e) =>
-                      setReplaceLines((rows) =>
-                        rows.map((r, i) => (i === index ? { ...r, qty: e.target.value } : r)),
-                      )
-                    }
-                    required
-                  />
-                </FormField>
-                <FormField id={`ex-rep-price-${index}`} label="Unit price" required>
-                  <Input
-                    id={`ex-rep-price-${index}`}
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={line.unitPrice}
-                    onChange={(e) =>
-                      setReplaceLines((rows) =>
-                        rows.map((r, i) =>
-                          i === index ? { ...r, unitPrice: e.target.value } : r,
-                        ),
-                      )
-                    }
-                    required
-                  />
-                </FormField>
-                <FormField
-                  id={`ex-rep-tax-${index}`}
-                  label="Tax rate"
-                  className="lg:col-span-2"
-                >
-                  <Select
+                    className="lg:col-span-2"
+                  >
+                    <Select
+                      id={`ex-rep-var-${index}`}
+                      value={line.variantId}
+                      onValueChange={(id) => {
+                        const v = variants.find((x) => x.id === id);
+                        setReplaceLines((rows) =>
+                          rows.map((r, i) =>
+                            i === index
+                              ? {
+                                  ...r,
+                                  variantId: id,
+                                  unitPrice: v ? String(v.sellingPrice) : r.unitPrice,
+                                }
+                              : r,
+                          ),
+                        );
+                      }}
+                      placeholder="Select SKU"
+                      required
+                      searchable
+                      options={variants.map((v) => ({ value: v.id, label: v.label }))}
+                    />
+                  </FormField>
+                  <FormField id={`ex-rep-qty-${index}`} label="Qty" required>
+                    <Input
+                      id={`ex-rep-qty-${index}`}
+                      type="number"
+                      min="0.001"
+                      value={line.qty}
+                      onChange={(e) =>
+                        setReplaceLines((rows) =>
+                          rows.map((r, i) => (i === index ? { ...r, qty: e.target.value } : r)),
+                        )
+                      }
+                      required
+                    />
+                  </FormField>
+                  <FormField id={`ex-rep-price-${index}`} label="Unit price" required>
+                    <Input
+                      id={`ex-rep-price-${index}`}
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={line.unitPrice}
+                      onChange={(e) =>
+                        setReplaceLines((rows) =>
+                          rows.map((r, i) =>
+                            i === index ? { ...r, unitPrice: e.target.value } : r,
+                          ),
+                        )
+                      }
+                      required
+                    />
+                  </FormField>
+                  <FormField
                     id={`ex-rep-tax-${index}`}
-                    value={line.taxRateId}
-                    onValueChange={(taxRateId) =>
-                      setReplaceLines((rows) =>
-                        rows.map((r, i) => (i === index ? { ...r, taxRateId } : r)),
-                      )
-                    }
-                    placeholder="Article default"
-                    allowClear
-                    clearLabel="Article default"
-                    options={taxRates.map((t) => ({ value: t.id, label: t.label }))}
-                  />
-                </FormField>
-              </div>
-            ))}
+                    label="Tax rate"
+                    className="lg:col-span-2"
+                  >
+                    <Select
+                      id={`ex-rep-tax-${index}`}
+                      value={line.taxRateId}
+                      onValueChange={(taxRateId) =>
+                        setReplaceLines((rows) =>
+                          rows.map((r, i) => (i === index ? { ...r, taxRateId } : r)),
+                        )
+                      }
+                      placeholder="Article default"
+                      allowClear
+                      clearLabel="Article default"
+                      options={taxRates.map((t) => ({ value: t.id, label: t.label }))}
+                    />
+                  </FormField>
+                </div>
+              ))
+            )}
           </div>
 
-          <FormField id="ex-notes" label="Notes">
+          <FormField id="ex-notes" label="Notes" hint="Optional">
             <Textarea
               id="ex-notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={2}
+              placeholder="e.g. Wrong size, exchanged same day"
             />
           </FormField>
 
-          {message ? <p className="text-sm text-muted-foreground">{message}</p> : null}
+          {message ? (
+            <p
+              className={
+                message.tone === 'ok'
+                  ? 'text-sm font-medium text-success'
+                  : 'text-sm text-destructive'
+              }
+              role={message.tone === 'ok' ? 'status' : 'alert'}
+            >
+              {message.text}
+            </p>
+          ) : null}
         </div>
       </SurfaceCard>
 
@@ -316,7 +387,7 @@ export function ExchangeForm({
         <Button
           type="submit"
           size="lg"
-          disabled={pending || blocked}
+          disabled={pending || blocked || !originalSaleId}
           className="h-12 w-full text-base md:h-11 md:w-auto"
         >
           {pending ? 'Posting…' : 'Post exchange'}

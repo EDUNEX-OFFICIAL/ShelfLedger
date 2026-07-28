@@ -9,6 +9,8 @@ import {
   Layers,
   Box,
   Truck,
+  TrendingDown,
+  TrendingUp,
 } from 'lucide-react';
 import { requireSession } from '@/server/auth/guards';
 import { masterService } from '@/server/services/masters';
@@ -25,6 +27,7 @@ import {
   type DashboardRange,
 } from '@/features/dashboard/dashboard-controls';
 import { KpiCard, MasterStatCard } from '@/features/dashboard/kpi-card';
+import { NeedsAttention } from '@/features/dashboard/needs-attention';
 import { PaymentMixChart, SalesTrendChart } from '@/features/reports/charts';
 
 function rangeBounds(range: DashboardRange): { from: Date; to: Date; label: string } {
@@ -53,6 +56,12 @@ function formatInvoiceDate(d: Date) {
   });
 }
 
+function greetingForHour(hour: number): string {
+  if (hour < 12) return 'Good morning';
+  if (hour < 17) return 'Good afternoon';
+  return 'Good evening';
+}
+
 export default async function DashboardPage({
   searchParams,
 }: {
@@ -70,6 +79,9 @@ export default async function DashboardPage({
     masterService.opsDashboard(user, bounds.from, bounds.to),
   ]);
 
+  const hour = new Date().getHours();
+  const greeting = greetingForHour(hour);
+
   const salesDeltaStatus = (() => {
     const base =
       ops.invoiceCount === 0
@@ -85,7 +97,28 @@ export default async function DashboardPage({
       title: 'Sales',
       href: '/sales',
       icon: ShoppingCart,
-      value: <MoneyText value={ops.salesTotal} compact />,
+      value: (
+        <span className="inline-flex items-end gap-2">
+          <MoneyText value={ops.salesTotal} compact />
+          {ops.salesDeltaPct != null ? (
+            <span
+              className={
+                ops.salesDeltaPct >= 0
+                  ? 'inline-flex items-center gap-0.5 text-sm font-semibold text-success'
+                  : 'inline-flex items-center gap-0.5 text-sm font-semibold text-warning'
+              }
+            >
+              {ops.salesDeltaPct >= 0 ? (
+                <TrendingUp className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+              ) : (
+                <TrendingDown className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+              )}
+              {ops.salesDeltaPct > 0 ? '+' : ''}
+              {ops.salesDeltaPct}%
+            </span>
+          ) : null}
+        </span>
+      ),
       status: salesDeltaStatus,
       statusTone:
         ops.salesDeltaPct == null
@@ -104,8 +137,8 @@ export default async function DashboardPage({
       value: <MoneyText value={ops.unpaidOutstanding} compact />,
       status:
         ops.unpaidCount > 0
-          ? `${ops.unpaidCount} open · ${formatInr(ops.unpaidOutstanding, true)} due`
-          : 'All clear',
+          ? `${ops.unpaidCount} open · ${formatInr(ops.unpaidOutstanding, true)} due · all open (not by period)`
+          : 'All clear · all open dues (not by period)',
       statusTone:
         ops.unpaidCount > 0 ? ('warn' as const) : ('good' as const),
     },
@@ -142,11 +175,11 @@ export default async function DashboardPage({
     <div className="space-y-6">
       <PageHeader
         title="Dashboard"
-        description={`Welcome back, ${user.name}.`}
+        description={`${greeting}, ${user.name}. Showing ${bounds.label.toLowerCase()}.`}
         actions={
-          <div className="flex w-full flex-col gap-3 sm:w-auto sm:items-end">
-            <DashboardRangeFilter range={range} />
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:items-end">
             <DashboardQuickActions />
+            <DashboardRangeFilter range={range} />
           </div>
         }
       />
@@ -156,6 +189,34 @@ export default async function DashboardPage({
           <KpiCard key={kpi.title} {...kpi} />
         ))}
       </section>
+
+      {ops.gstTotal > 0 || ops.draftCount > 0 ? (
+        <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+          {ops.gstTotal > 0 ? (
+            <span>
+              GST (CGST+SGST) · {bounds.label}:{' '}
+              <MoneyText value={ops.gstTotal} className="font-medium text-foreground" />
+            </span>
+          ) : null}
+          {ops.gstTotal > 0 && ops.draftCount > 0 ? (
+            <span className="text-border" aria-hidden>
+              ·
+            </span>
+          ) : null}
+          {ops.draftCount > 0 ? (
+            <Link href="/sales?status=DRAFT" className="font-medium text-primary hover:underline">
+              {ops.draftCount} draft sale{ops.draftCount === 1 ? '' : 's'}
+            </Link>
+          ) : null}
+        </p>
+      ) : null}
+
+      <NeedsAttention
+        lowStockPeek={ops.lowStockPeek}
+        lowStockCount={ops.lowStockCount}
+        unpaidPeek={ops.unpaidPeek}
+        unpaidCount={ops.unpaidCount}
+      />
 
       <DashboardOptionalSections
         charts={
@@ -207,9 +268,15 @@ export default async function DashboardPage({
               Quick Sale
             </Link>
           }
+          mobileHref={(r) => `/sales/${r.id}/invoice`}
           mobileTitle={(r) => r.invoiceNo}
           mobileMeta={(r) => r.customerName}
-          mobileTrailing={(r) => <StatusBadge status={r.paymentStatus} />}
+          mobileTrailing={(r) => (
+            <div className="flex flex-col items-end gap-1">
+              <MoneyText value={r.totalAmount} className="text-sm font-semibold" />
+              <StatusBadge status={r.paymentStatus} />
+            </div>
+          )}
           columns={[
             {
               id: 'invoice',
@@ -233,6 +300,7 @@ export default async function DashboardPage({
             {
               id: 'date',
               header: 'Date',
+              mobile: false,
               cell: (r) => (
                 <span className="text-xs text-muted-foreground">
                   {formatInvoiceDate(r.invoiceDate)}
@@ -248,6 +316,7 @@ export default async function DashboardPage({
             {
               id: 'total',
               header: 'Total',
+              mobile: false,
               className: 'text-right',
               cell: (r) => <MoneyText value={r.totalAmount} />,
             },

@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { PackagePlus } from 'lucide-react';
 import { canManageInventory } from '@shelfledger/db';
 import { requireSession } from '@/server/auth/guards';
@@ -10,9 +11,23 @@ import { buttonClassName } from '@/components/ui/button';
 import { PurchaseForm } from '@/features/purchases/purchase-form';
 import { PurchasesList } from '@/features/purchases/purchases-list';
 
-export default async function PurchasesPage() {
+function filterContextLabel(status?: string): string | null {
+  if (status === 'DRAFT') return 'Showing draft purchases only — post to receive stock';
+  if (status === 'POSTED') return 'Showing posted purchases — use Return for outbound';
+  return null;
+}
+
+export default async function PurchasesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ status?: string }>;
+}) {
   const user = await requireSession();
   const canWrite = canManageInventory(user.role);
+  const params = await searchParams;
+  const status =
+    params.status === 'DRAFT' || params.status === 'POSTED' ? params.status : undefined;
+
   const [purchases, vendors, variants, taxRates] = await Promise.all([
     purchaseService.list(user),
     masterService.listVendors(user),
@@ -20,11 +35,14 @@ export default async function PurchasesPage() {
     masterService.listTaxRates(user),
   ]);
 
+  const draftCount = purchases.filter((p) => p.status === 'DRAFT').length;
+  const contextLabel = filterContextLabel(status);
+
   return (
     <div className="space-y-6">
       <PageHeader
         title="Purchases"
-        description="Draft then post. Posting writes stock ledger and updates average cost."
+        description="Enter a vendor bill, then Post to receive stock and update average cost."
         actions={
           canWrite ? (
             <a href="#new-purchase" className={buttonClassName({ size: 'lg' })}>
@@ -35,11 +53,53 @@ export default async function PurchasesPage() {
         }
       />
 
+      {draftCount > 0 ? (
+        <p className="text-xs text-muted-foreground">
+          <Link href="/purchases?status=DRAFT" className="font-medium text-primary hover:underline">
+            {draftCount} draft{draftCount === 1 ? '' : 's'} waiting to receive
+          </Link>
+        </p>
+      ) : null}
+
+      {contextLabel ? (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/70 bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+          <span>{contextLabel}.</span>
+          <Link href="/purchases" className="font-semibold text-primary hover:underline">
+            Show all
+          </Link>
+        </div>
+      ) : null}
+
+      <section id="all-purchases" className="scroll-mt-24 space-y-3">
+        <SectionHeader
+          title="All purchases"
+          description="Match vendor invoice #, post drafts to receive, or return posted lines."
+        />
+        <PurchasesList
+          canWrite={canWrite}
+          initialStatus={status}
+          rows={purchases.map((p) => ({
+            id: p.id,
+            vendorName: p.vendor.name,
+            vendorInvoiceNo: p.vendorInvoiceNo,
+            vendorInvoiceDate: p.vendorInvoiceDate,
+            status: p.status,
+            lineCount: p.lines.length,
+            totalAmount: Number(p.totalAmount),
+            returnLines: p.lines.map((l) => ({
+              id: l.id,
+              label: l.variant.sku,
+              qty: Number(l.qty),
+            })),
+          }))}
+        />
+      </section>
+
       {canWrite ? (
         <section id="new-purchase" className="scroll-mt-24 space-y-3">
           <SectionHeader
-            title="Create draft"
-            description="Vendor invoice details and lines (ex-GST). Post from the list to receive stock."
+            title="New vendor bill"
+            description="Lines are ex-GST. Saving creates a draft — Post from the list to put stock on the shelf."
           />
           <PurchaseForm
             canWrite={canWrite}
@@ -52,28 +112,6 @@ export default async function PurchasesPage() {
           />
         </section>
       ) : null}
-
-      <section className="space-y-3">
-        <SectionHeader
-          title="All purchases"
-          description="Search by vendor, post drafts, or return posted lines."
-        />
-        <PurchasesList
-          canWrite={canWrite}
-          rows={purchases.map((p) => ({
-            id: p.id,
-            vendorName: p.vendor.name,
-            status: p.status,
-            lineCount: p.lines.length,
-            totalAmount: Number(p.totalAmount),
-            returnLines: p.lines.map((l) => ({
-              id: l.id,
-              label: l.variant.sku,
-              qty: Number(l.qty),
-            })),
-          }))}
-        />
-      </section>
     </div>
   );
 }

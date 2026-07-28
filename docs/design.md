@@ -198,7 +198,141 @@ Ship intentional motions:
 | Mode | When | Screen |
 |------|------|--------|
 | **Quick Sale** (`/sales/quick`) | Walk-in, 1–few lines, paid now | Mobile-first punch; create+post one tap |
-| **Draft sale** (`/sales`) | Overrides, unpaid/partial, heavy edits | Existing multi-field form + Post from list |
+| **Draft sale** (`/sales#new-draft`) | Overrides, unpaid/partial, heavy edits | List-first page; form below; Post from list |
+
+### Sales list page (`/sales`)
+
+Primary job: find invoices, post leftover drafts, chase open dues. Punching bills lives on **Quick Sale**.
+
+1. Header: **Quick Sale** primary + **New draft** → opens collapsed Advanced draft (`#new-draft`)
+2. Quiet meta: drafts to post + open dues (deep links)
+3. Deep-link banner when `?payment=` / `?status=` (Show all → `/sales`)
+4. **All sales** list (invoice date column; mobile posted chips open invoice; Post → invoice)
+5. **Advanced draft** collapsed by default (unpaid / override / multi-line)
+
+### Purchases list page (`/purchases`)
+
+Primary job: enter a vendor bill and Post to receive stock (no separate “quick purchase”).
+
+1. Header: **New purchase** → `#new-purchase` (form stays visible — create is core here)
+2. Quiet meta: drafts waiting to receive → `?status=DRAFT`
+3. Deep-link banner when `?status=`
+4. **All purchases** list with **vendor invoice # + bill date** (searchable) + Post / Return
+5. **New vendor bill** form below (not collapsed)
+
+### Expenses page (`/expenses`)
+
+Primary job: log shop spend fast; review period totals. Does not affect inventory.
+
+1. Header: **Add expense** + period segmented (Today / 30d / Month / All; default Month)
+2. Quiet meta: period total ₹ + entry count
+3. **Log expense** form (date defaults today; amount autofocus; FormField + sticky CTA)
+4. **Manage categories** collapsed (open when none exist)
+5. Expenses list (amount trailing on mobile; category filter; notes column)
+6. By-category chart last (same period)
+
+### Inventory page (`/inventory`)
+
+Primary job (mobile Stock tab): find SKU on-hand qty. Opening/adjust are rare ledger posts.
+
+1. Header: Opening / Adjust CTAs + Ledger link
+2. Quiet meta: on-hand value + low-stock count → `?stock=low`
+3. **On-hand balances** first (qty prominent on mobile; Low badge; size/color searchable; **Ledger** → `/stock-ledger?sku=`)
+4. **Opening stock** + **Adjustments** collapsed panels (`#opening-stock` / `#adjustments`)
+
+### Stock ledger page (`/stock-ledger`)
+
+Primary job: audit **why** qty changed (read-only). Create stock on Inventory, not here.
+
+1. Header: **Balances** + Post stock (opening)
+2. Quiet meta: last N movements · in/out counts · optional `?sku=` cue
+3. List: human movement labels; **Qty Δ** green/red; article under SKU; clickable **Source** (sale → invoice)
+4. Filters: Type family · Direction · When (Today/7d/30d); search SKU/article/notes
+
+### Reports page (`/reports`)
+
+Primary job: owner/manager period insights + low-stock attention (not a floor punch screen).
+
+1. Quiet meta: period label · low-stock jump · section anchors
+2. Period: **Today / 7d / 30d / Month** presets + Custom dates (preserve hash on apply)
+3. KPIs → sales / `#sales-gst` / low-stock or inventory
+4. Charts → cashflow; Purchases/Expenses cards link out
+5. **Sales & GST** mobile list with invoice tap-through (CGST+SGST only; no IGST row)
+6. **Low stock** list (qty trailing) → Inventory / Ledger `?sku=`
+7. Top stock value peek (snapshot)
+
+### Settings page (`/settings`)
+
+Primary job: org identity for invoices + tax rates + invoice prefixes (admin, not floor punch).
+
+1. Header: **Staff** link (OWNER/MANAGER)
+2. Section jumps: Organization · Tax rates · Sequences
+3. **Organization** form first (invoice header): GSTIN · state code · address2/email restored; FY month select; sticky Save; VIEWER gets read-only profile (not empty)
+4. **Tax rates** list first (mobile total % trailing); add form below with CGST/SGST auto-split from total
+5. **Sequences** as cards (prefix edit; next # read-only)
+
+### Staff page (`/staff`)
+
+Primary job: find team + change role/active; add users occasionally.
+
+1. Header: **Add user** + Settings
+2. Quiet meta: active count · by role
+3. **Team list first** (search name/email; role & status filters; human role labels; **You** badge)
+4. Row edit: role + Active; Save only when dirty; self row locks role/deactivate
+5. Create form below: FormField; role hints; temp password; default Cashier
+
+### Exchanges page (`/exchanges`)
+
+Primary job (mobile Exchange tab): return / size-swap against a posted invoice (create+post one shot).
+
+1. Header: **New exchange** → `#new-exchange` (form stays open — create is the tab job)
+2. Form: **Original invoice first** (searchable); customer filters invoices; return required, replace optional
+3. Recent list: invoice link, date, **difference** with pay / refund / even hint
+
+### Customers page (`/customers`)
+
+Primary job: find by phone/name; add named buyers for WhatsApp / invoices.
+
+1. Header: **Add customer** → `#new-customer`
+2. Quiet meta: named count + with-phone count
+3. **List first** (phone search / `tel:` / WhatsApp; Named vs Walk-in filter)
+4. Add form below: **Name + phone** primary; GSTIN/address collapsed under More details
+
+### Vendors page (`/vendors`)
+
+Primary job: manage suppliers for purchases (GSTIN + terms matter more than WhatsApp).
+
+1. Header: **Add vendor** + **New purchase**
+2. Quiet meta: vendor count · with GSTIN
+3. **List first** (GSTIN search/filter; Net terms column; Purchase action; `tel:`)
+4. Form: **Name + GSTIN + phone + payment terms**; email/address/notes under More details
+
+### Articles page (`/articles`)
+
+Primary job: catalog styles + size×color SKUs (qty is Inventory, not here).
+
+1. Header: **Add article** + Stock link
+2. Quiet meta: style count · SKU count
+3. **List first** (search SKU/size/code; brand & category filters; variant count trailing)
+4. Form below: style + brand/category; Tax/HSN collapsed; variants with SKU suggest from code-size-color
+
+### Brands page (`/brands`)
+
+Primary job: tiny master before articles — name (+ optional code).
+
+1. Header: **Add brand** + **Add article**
+2. Quiet meta: brand count · with code
+3. **List first** (code trailing; Articles row action)
+4. Compact form: name autofocus; code auto-suggested; success → Add article
+
+### Categories page (`/categories`)
+
+Primary job: nested groups for articles (root → optional subcategory). Not a flat Brands clone.
+
+1. Header: **Add category** + **Add article**
+2. Quiet meta: root count · subcategory count
+3. **List first**, tree order (root then children); Root/Sub trailing; filter Root only / Subcategories
+4. Form below: parent select = **roots only** (2-level tree); success → Add article
 
 ---
 
@@ -308,9 +442,11 @@ Interactive (link/button wrapper): hover `border-primary/20 shadow-md`; no hover
 
 1. Header: period control + **one** primary CTA (**Quick Sale** → `/sales/quick`); secondary actions overflow/secondary
 2. KPI band (mobile `grid-cols-2`, `xl:grid-cols-4`)
-3. Optional charts (user toggle; persist preference)
-4. Optional catalog/masters strip (user toggle; persist preference)
-5. Recent activity list with `SectionHeader`
+3. Quiet meta: period GST (CGST+SGST) + draft-sales link when relevant
+4. Needs attention (low stock + unpaid peeks) — hide when all clear
+5. Optional charts (user toggle; persist preference; Customize menu)
+6. Optional catalog/masters strip (user toggle; **default off**; persist preference)
+7. Recent activity list with `SectionHeader` (mobile chips open invoice)
 
 ---
 

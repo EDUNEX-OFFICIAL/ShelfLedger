@@ -14,41 +14,64 @@ export type SaleListRow = {
   status: string;
   paymentStatus: string;
   totalAmount: number;
+  invoiceDate: Date | string;
 };
+
+function formatInvoiceDate(d: Date | string) {
+  const date = typeof d === 'string' ? new Date(d) : d;
+  return date.toLocaleDateString('en-IN', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
+}
 
 export function SalesList({
   rows,
   canWrite,
   initialPayment,
+  initialStatus,
 }: {
   rows: SaleListRow[];
   canWrite: boolean;
   initialPayment?: string;
+  initialStatus?: string;
 }) {
+  const initialFilters =
+    initialPayment || initialStatus
+      ? {
+          ...(initialStatus ? { status: initialStatus } : {}),
+          ...(initialPayment
+            ? {
+                payment: initialPayment,
+                ...(initialPayment === 'OPEN' ||
+                initialPayment === 'UNPAID' ||
+                initialPayment === 'PARTIAL'
+                  ? { status: initialStatus ?? 'POSTED' }
+                  : {}),
+              }
+            : {}),
+        }
+      : undefined;
+
   return (
     <FilteredDataList
       rows={rows}
       searchPlaceholder="Search invoice or customer…"
       searchFn={(r, q) =>
-        r.invoiceLabel.toLowerCase().includes(q) || r.customerName.toLowerCase().includes(q)
+        r.invoiceLabel.toLowerCase().includes(q) ||
+        r.customerName.toLowerCase().includes(q) ||
+        formatInvoiceDate(r.invoiceDate).toLowerCase().includes(q)
       }
-      initialFilters={
-        initialPayment
-          ? {
-              payment: initialPayment,
-              ...(initialPayment === 'OPEN' || initialPayment === 'UNPAID' || initialPayment === 'PARTIAL'
-                ? { status: 'POSTED' }
-                : {}),
-            }
-          : undefined
-      }
+      initialFilters={initialFilters}
       filters={[
         {
           id: 'status',
           label: 'Status',
           options: [
-            { value: 'DRAFT', label: 'DRAFT' },
-            { value: 'POSTED', label: 'POSTED' },
+            { value: 'DRAFT', label: 'Draft' },
+            { value: 'POSTED', label: 'Posted' },
           ],
           predicate: (r, v) => r.status === v,
         },
@@ -57,9 +80,9 @@ export function SalesList({
           label: 'Payment',
           options: [
             { value: 'OPEN', label: 'Open (unpaid/partial)' },
-            { value: 'PAID', label: 'PAID' },
-            { value: 'PARTIAL', label: 'PARTIAL' },
-            { value: 'UNPAID', label: 'UNPAID' },
+            { value: 'PAID', label: 'Paid' },
+            { value: 'PARTIAL', label: 'Partial' },
+            { value: 'UNPAID', label: 'Unpaid' },
           ],
           predicate: (r, v) =>
             v === 'OPEN'
@@ -68,23 +91,44 @@ export function SalesList({
         },
       ]}
       emptyTitle="No sales yet"
-      emptyDescription="Ensure stock exists via purchase or opening, then punch a Quick Sale or create a draft."
+      emptyDescription="Punch a Quick Sale for walk-in bills, or open Advanced draft for unpaid / overrides."
       emptyAction={
         canWrite ? (
-          <Link href="/sales/quick" className={buttonClassName({ size: 'md' })}>
-            Quick Sale
-          </Link>
+          <div className="flex flex-wrap justify-center gap-2">
+            <Link href="/sales/quick" className={buttonClassName({ size: 'md' })}>
+              Quick Sale
+            </Link>
+            <a href="#new-draft" className={buttonClassName({ variant: 'secondary', size: 'md' })}>
+              New draft
+            </a>
+          </div>
         ) : undefined
       }
+      mobileHref={(r) => (r.status === 'POSTED' ? `/sales/${r.id}/invoice` : null)}
       mobileTitle={(r) => r.invoiceLabel}
-      mobileMeta={(r) => r.customerName}
-      mobileTrailing={(r) => <StatusBadge status={r.paymentStatus} />}
+      mobileMeta={(r) => `${r.customerName} · ${formatInvoiceDate(r.invoiceDate)}`}
+      mobileTrailing={(r) => (
+        <div className="flex flex-col items-end gap-1">
+          <MoneyText value={r.totalAmount} className="text-sm font-semibold" />
+          <StatusBadge status={r.status === 'DRAFT' ? r.status : r.paymentStatus} />
+        </div>
+      )}
       columns={[
         {
           id: 'invoice',
           header: 'Invoice',
           mobile: false,
-          cell: (r) => <span className="font-mono text-xs">{r.invoiceLabel}</span>,
+          cell: (r) =>
+            r.status === 'POSTED' ? (
+              <Link
+                href={`/sales/${r.id}/invoice`}
+                className="font-mono text-xs hover:underline"
+              >
+                {r.invoiceLabel}
+              </Link>
+            ) : (
+              <span className="font-mono text-xs text-muted-foreground">{r.invoiceLabel}</span>
+            ),
         },
         {
           id: 'customer',
@@ -92,7 +136,20 @@ export function SalesList({
           mobile: false,
           cell: (r) => <span className="font-medium">{r.customerName}</span>,
         },
-        { id: 'status', header: 'Status', cell: (r) => <StatusBadge status={r.status} /> },
+        {
+          id: 'date',
+          header: 'Date',
+          mobile: false,
+          cell: (r) => (
+            <span className="text-xs text-muted-foreground">{formatInvoiceDate(r.invoiceDate)}</span>
+          ),
+        },
+        {
+          id: 'status',
+          header: 'Status',
+          mobile: false,
+          cell: (r) => <StatusBadge status={r.status} />,
+        },
         {
           id: 'payment',
           header: 'Payment',
@@ -102,6 +159,7 @@ export function SalesList({
         {
           id: 'total',
           header: 'Total',
+          mobile: false,
           className: 'text-right',
           cell: (r) => <MoneyText value={r.totalAmount} />,
         },

@@ -46,13 +46,16 @@
 
 - Global search: `⌘K` / top-bar search (invoices, customers, SKUs, vendors, brands, articles)
 - Lists: search + filters; mobile chip layout under `md`
-- Dashboard: Today / 7d / 30d sales KPIs + recent sales; charts + catalog strip **user-togglable** (localStorage)
+- Dashboard: Today / 7d / 30d sales KPIs + recent sales; charts + catalog strip **user-togglable** (localStorage; catalog **default off**); Needs attention peeks; GST meta + draft link; mobile recent chips open invoice
 - **UI consistency (v1.4):** type/button/card tokens locked in `docs/design.md` §14 — `SectionHeader`, `SurfaceCard`, `buttonClassName`, segmented period
-- **Sales pass done:** `/sales`, `/sales/quick`, invoice — shared Input/Textarea chrome, SurfaceCard forms, SectionHeader bands, Quick Sale primary CTAs
-- **Purchases pass done:** `/purchases` — SectionHeader bands, SurfaceCard draft form, New purchase CTA → `#new-purchase`
-- **Expenses pass done:** `/expenses` — Add expense CTA, SurfaceCard category + expense forms, chart + list SectionHeaders
-- **Inventory + exchanges + stock ledger pass done:** SurfaceCard forms, SectionHeaders, opening/adjust CTAs; exchange New CTA; ledger en-IN timestamps
-- **Masters pass done:** brands, categories, articles, vendors, customers — Add CTAs, SurfaceCard forms, SectionHeaders, empty-state links
+- **Sales pass done:** `/sales` — find/post/dues first; Advanced draft collapsed; invoice date; Post→invoice; Quick Sale primary; `/sales/quick` → `#new-draft`
+- **Purchases pass done:** `/purchases` — vendor invoice # + bill date searchable; drafts-to-receive meta; form stays open (create is primary); list-first + New purchase CTA
+- **Expenses pass done:** `/expenses` — period filter (Today/30d/Month/All) + period total; log form with today default + FormField; categories collapsed; list with amount trailing + category filter; chart after list
+- **Reports pass done:** `/reports` — Today/7d/30d/Month + Custom; sales invoice + low-stock mobile lists; GST detail without IGST row; purchases/expenses link-out; `#low-stock` / `#sales-gst` anchors
+- **Settings pass done:** `/settings` — org FormField + address2/email; FY month select; sticky Save; VIEWER read-only profile; tax list-first + auto CGST/SGST split; sequence cards; Staff CTA
+- **Staff pass done:** `/staff` — list-first; human roles; You badge; self lock; dirty Save; role hints; Settings CTA; create form below
+- **Inventory + exchanges + stock ledger pass done:** Inventory list-first + Ledger→`?sku=`; Exchanges invoice-first; opening/adjust collapsed; **stock ledger** audit list (type/dir/period filters, ±qty color, sale→invoice, `?sku=` deep link)
+- **Masters pass done:** **articles** list-first + SKU search; **brands** list-first + code suggest + Articles CTA; **categories** tree list (root→sub) + roots-only parent select; customers phone/WhatsApp; vendors GSTIN/Net terms
 - **UI leftovers pass done:** ListToolbar/ConfirmDialog/toast/command palette radius; Post sale/purchase ConfirmDialog; purchase return dialog (no prompt); login §14; dashboard P1 metrics (outstanding ₹, vs-prior %, `/sales?payment=OPEN`)
 - **Sticky CTA + FormField pass:** shared `StickyFormActions` on Quick Sale, draft sale, purchase, exchange; FormField on those entry forms
 - **Pre-burn-in polish:** masters FormField (brand/category/vendor/customer/article); dashboard Low stock → `/reports#low-stock`; success/error micro-UX on master forms

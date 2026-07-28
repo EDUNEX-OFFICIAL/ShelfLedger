@@ -28,7 +28,7 @@ export default async function QuickSalePage() {
         description="Name, mobile, punch — customer saved for offers."
         actions={
           <Link
-            href="/sales"
+            href="/sales#new-draft"
             className="text-xs font-medium text-muted-foreground/90 underline-offset-4 hover:text-primary hover:underline"
           >
             Full draft sale

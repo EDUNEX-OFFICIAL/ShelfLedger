@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useState, useTransition } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -79,7 +80,7 @@ export function PurchaseForm({
             setMessage(result.error);
             return;
           }
-          setMessage(`Draft created (${result.data.id.slice(0, 8)}…). Post it from the list.`);
+          setMessage('ok');
           setVendorId('');
           setVendorInvoiceNo('');
           setVendorInvoiceDate('');
@@ -91,11 +92,24 @@ export function PurchaseForm({
       <SurfaceCard padding="none" className="overflow-hidden">
         <div className="space-y-5 p-5">
           {blocked ? (
-            <p className="rounded-lg border border-dashed border-border/80 bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
-              {vendors.length === 0
-                ? 'Add a vendor before creating a purchase.'
-                : 'Add article variants (SKUs) before creating a purchase.'}
-            </p>
+            <div className="space-y-2 rounded-lg border border-dashed border-border/80 bg-muted/30 px-3 py-2.5 text-sm text-muted-foreground">
+              <p>
+                {vendors.length === 0
+                  ? 'Add a vendor before creating a purchase.'
+                  : 'Add article variants (SKUs) before creating a purchase.'}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {vendors.length === 0 ? (
+                  <Link href="/vendors" className="font-semibold text-primary hover:underline">
+                    Go to Vendors
+                  </Link>
+                ) : (
+                  <Link href="/articles" className="font-semibold text-primary hover:underline">
+                    Go to Articles
+                  </Link>
+                )}
+              </div>
+            </div>
           ) : null}
 
           <div className="grid gap-4 sm:grid-cols-3">
@@ -242,7 +256,22 @@ export function PurchaseForm({
             />
           </FormField>
 
-          {message ? <p className="text-sm text-muted-foreground">{message}</p> : null}
+          {message === 'ok' ? (
+            <p className="text-sm font-medium text-success" role="status">
+              Draft saved.{' '}
+              <a
+                href="#all-purchases"
+                className="underline underline-offset-2 hover:text-success/90"
+              >
+                Post it from All purchases
+              </a>{' '}
+              to receive stock on the shelf.
+            </p>
+          ) : message ? (
+            <p className="text-sm text-destructive" role="alert">
+              {message}
+            </p>
+          ) : null}
         </div>
       </SurfaceCard>
 
@@ -253,7 +282,7 @@ export function PurchaseForm({
           disabled={pending || blocked}
           className="h-12 w-full text-base md:h-11 md:w-auto"
         >
-          {pending ? 'Saving…' : 'Save draft'}
+          {pending ? 'Saving…' : 'Create draft purchase'}
         </Button>
       </StickyFormActions>
     </form>

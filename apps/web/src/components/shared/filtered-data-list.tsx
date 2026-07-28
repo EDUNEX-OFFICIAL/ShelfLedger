@@ -13,11 +13,13 @@ export function FilteredDataList<T extends { id: string }>({
   mobileTitle,
   mobileMeta,
   mobileTrailing,
+  mobileHref,
   actions,
   searchPlaceholder,
   searchFn,
   filters,
   initialFilters,
+  initialSearch,
   emptyTitle,
   emptyDescription,
   emptyAction,
@@ -27,6 +29,7 @@ export function FilteredDataList<T extends { id: string }>({
   mobileTitle: (row: T) => ReactNode;
   mobileMeta?: (row: T) => ReactNode;
   mobileTrailing?: (row: T) => ReactNode;
+  mobileHref?: (row: T) => string | null | undefined;
   actions?: (row: T) => ReactNode;
   searchPlaceholder?: string;
   searchFn: (row: T, q: string) => boolean;
@@ -38,11 +41,13 @@ export function FilteredDataList<T extends { id: string }>({
   }>;
   /** Prefill filter values from URL / deep links. */
   initialFilters?: Record<string, string>;
+  /** Prefill search from URL / deep links (e.g. stock-ledger?sku=). */
+  initialSearch?: string;
   emptyTitle: string;
   emptyDescription?: string;
   emptyAction?: ReactNode;
 }) {
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(initialSearch ?? '');
   const [filterValues, setFilterValues] = useState<Record<string, string>>(() => {
     const base = Object.fromEntries((filters ?? []).map((f) => [f.id, '']));
     if (!initialFilters) return base;
@@ -95,6 +100,7 @@ export function FilteredDataList<T extends { id: string }>({
         mobileTitle={mobileTitle}
         mobileMeta={mobileMeta}
         mobileTrailing={mobileTrailing}
+        mobileHref={mobileHref}
         actions={actions}
         isFiltered={hasActive}
         emptyTitle={emptyTitle}

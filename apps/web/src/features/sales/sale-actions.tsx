@@ -2,11 +2,13 @@
 
 import { useTransition, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Button, buttonClassName } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/shared/confirm-dialog';
 import { postSaleAction } from '@/features/sales/actions';
 
 export function PostSaleButton({ saleId }: { saleId: string }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -32,6 +34,7 @@ export function PostSaleButton({ saleId }: { saleId: string }) {
               return;
             }
             setOpen(false);
+            router.push(`/sales/${result.data.id}/invoice`);
           });
         }}
       />

@@ -1,11 +1,18 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { FormField } from '@/components/shared/form-field';
 import { SurfaceCard } from '@/components/shared/surface-card';
 import { createBrandAction, updateBrandAction } from '@/features/masters/actions';
+
+function suggestCode(name: string) {
+  const letters = name.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+  return letters.slice(0, 4);
+}
 
 export function BrandForm({
   initial,
@@ -16,8 +23,10 @@ export function BrandForm({
   brandId?: string;
   canWrite: boolean;
 }) {
+  const router = useRouter();
   const [name, setName] = useState(initial?.name ?? '');
   const [code, setCode] = useState(initial?.code ?? '');
+  const [codeTouched, setCodeTouched] = useState(Boolean(initial?.code));
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -27,7 +36,7 @@ export function BrandForm({
   return (
     <SurfaceCard padding="none" className="overflow-hidden">
       <form
-        className="grid gap-4 p-5 sm:grid-cols-[1fr_160px_auto] sm:items-end"
+        className="grid gap-4 p-5 sm:grid-cols-[1fr_140px_auto] sm:items-end"
         onSubmit={(e) => {
           e.preventDefault();
           setMessage(null);
@@ -40,31 +49,64 @@ export function BrandForm({
               setError(result.error);
               return;
             }
-            setMessage(brandId ? 'Updated' : 'Created');
+            setMessage(brandId ? 'Brand updated' : 'Brand saved — ready for new articles.');
             if (!brandId) {
               setName('');
               setCode('');
+              setCodeTouched(false);
             }
+            router.refresh();
           });
         }}
       >
-        <FormField id="brand-name" label="Name" required>
+        <FormField id="brand-name" label="Brand name" required>
           <Input
             id="brand-name"
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => {
+              const next = e.target.value;
+              setName(next);
+              if (!brandId && !codeTouched) {
+                setCode(suggestCode(next));
+              }
+            }}
             required
+            autoFocus={!brandId}
+            placeholder="e.g. Nike"
           />
         </FormField>
         <FormField id="brand-code" label="Code" hint="Optional short code">
-          <Input id="brand-code" value={code} onChange={(e) => setCode(e.target.value)} />
+          <Input
+            id="brand-code"
+            value={code}
+            onChange={(e) => {
+              setCodeTouched(true);
+              setCode(e.target.value);
+            }}
+            className="font-mono"
+            placeholder="NIKE"
+            maxLength={20}
+          />
         </FormField>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-col gap-2 sm:pb-0.5">
           <Button type="submit" size="lg" disabled={pending} className="w-full sm:w-auto">
             {pending ? 'Saving…' : brandId ? 'Update' : 'Add brand'}
           </Button>
-          {message ? <span className="text-xs font-medium text-success">{message}</span> : null}
-          {error ? <span className="text-xs text-destructive">{error}</span> : null}
+          {message ? (
+            <p className="text-xs font-medium text-success" role="status">
+              {message}{' '}
+              {!brandId ? (
+                <Link href="/articles#new-article" className="underline underline-offset-2">
+                  Add article
+                </Link>
+              ) : null}
+            </p>
+          ) : null}
+          {error ? (
+            <p className="text-xs text-destructive" role="alert">
+              {error}
+            </p>
+          ) : null}
         </div>
       </form>
     </SurfaceCard>

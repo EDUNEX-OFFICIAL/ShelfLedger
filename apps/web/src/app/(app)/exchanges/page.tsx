@@ -41,7 +41,7 @@ export default async function ExchangesPage() {
     <div className="space-y-6">
       <PageHeader
         title="Exchanges"
-        description="Return against a posted sale and optionally replace. Updates stock both ways."
+        description="Return or size-swap against a posted invoice. Stock moves both ways; difference = replace − return."
         actions={
           canWrite ? (
             <a href="#new-exchange" className={buttonClassName({ size: 'lg' })}>
@@ -56,7 +56,7 @@ export default async function ExchangesPage() {
         <section id="new-exchange" className="scroll-mt-24 space-y-3">
           <SectionHeader
             title="Post exchange"
-            description="Pick the original invoice, return lines, and optional replacements."
+            description="Start with the original invoice. Add return lines, then optional replacements."
           />
           <ExchangeForm
             canWrite={canWrite}
@@ -77,8 +77,8 @@ export default async function ExchangesPage() {
 
       <section className="space-y-3">
         <SectionHeader
-          title="All exchanges"
-          description="Search by customer or original invoice."
+          title="Recent exchanges"
+          description="Difference: positive = customer pays more; negative = refund/credit; zero = even swap."
         />
         <ExchangesList
           canWrite={canWrite}
@@ -86,9 +86,11 @@ export default async function ExchangesPage() {
             id: ex.id,
             customerName: ex.customer.name,
             invoiceNo: ex.originalSale?.invoiceNo ?? '—',
+            originalSaleId: ex.originalSaleId,
             status: ex.status,
             differenceAmount: Number(ex.differenceAmount),
             lineCount: ex.lines.length,
+            postedAt: ex.postedAt,
           }))}
         />
       </section>

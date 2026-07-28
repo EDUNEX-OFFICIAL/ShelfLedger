@@ -14,6 +14,17 @@ export type CustomerListRow = {
   isWalkIn: boolean;
 };
 
+function digitsOnly(phone: string) {
+  return phone.replace(/\D/g, '');
+}
+
+function waHref(phone: string) {
+  let d = digitsOnly(phone);
+  if (d.length === 10) d = `91${d}`;
+  if (d.length < 10) return null;
+  return `https://wa.me/${d}`;
+}
+
 export function CustomersList({
   rows,
   canWrite = false,
@@ -26,14 +37,30 @@ export function CustomersList({
   return (
     <FilteredDataList
       rows={rows}
-      searchPlaceholder="Search name, phone, GSTIN…"
-      searchFn={(r, q) =>
-        r.name.toLowerCase().includes(q) ||
-        (r.phone ?? '').toLowerCase().includes(q) ||
-        (r.gstin ?? '').toLowerCase().includes(q)
-      }
+      searchPlaceholder="Search name or phone…"
+      searchFn={(r, q) => {
+        const phone = (r.phone ?? '').toLowerCase();
+        const digits = digitsOnly(r.phone ?? '');
+        return (
+          r.name.toLowerCase().includes(q) ||
+          phone.includes(q) ||
+          digits.includes(q.replace(/\D/g, '')) ||
+          (r.gstin ?? '').toLowerCase().includes(q)
+        );
+      }}
+      filters={[
+        {
+          id: 'type',
+          label: 'Type',
+          options: [
+            { value: 'named', label: 'Named' },
+            { value: 'walkin', label: 'Walk-in' },
+          ],
+          predicate: (r, v) => (v === 'walkin' ? r.isWalkIn : !r.isWalkIn),
+        },
+      ]}
       emptyTitle="No customers yet"
-      emptyDescription="Add a named customer or use the seeded walk-in customer on sales."
+      emptyDescription="Add named buyers for invoices and WhatsApp. Walk-in is seeded for counter sales."
       emptyAction={
         canWrite ? (
           <a href="#new-customer" className={buttonClassName({ size: 'md' })}>
@@ -41,12 +68,35 @@ export function CustomersList({
           </a>
         ) : undefined
       }
-      mobileTitle={(r) => r.name}
-      mobileMeta={(r) => r.phone ?? 'No phone'}
+      mobileTitle={(r) => (
+        <span className="inline-flex items-center gap-2">
+          {r.name}
+          {r.isWalkIn ? (
+            <Badge variant="muted" className="text-[10px]">
+              walk-in
+            </Badge>
+          ) : null}
+        </span>
+      )}
+      mobileMeta={(r) => (r.gstin ? `GSTIN ${r.gstin}` : r.isWalkIn ? 'Default counter customer' : null)}
+      mobileTrailing={(r) =>
+        r.phone ? (
+          <a
+            href={`tel:${digitsOnly(r.phone)}`}
+            className="font-mono text-sm font-semibold text-primary"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {r.phone}
+          </a>
+        ) : (
+          <span className="text-xs text-muted-foreground">No phone</span>
+        )
+      }
       columns={[
         {
           id: 'name',
           header: 'Name',
+          mobile: false,
           cell: (r) => (
             <span className="font-medium">
               {r.name}
@@ -61,19 +111,42 @@ export function CustomersList({
         {
           id: 'phone',
           header: 'Phone',
-          cell: (r) => <span className="font-mono text-xs">{r.phone ?? '—'}</span>,
+          mobile: false,
+          cell: (r) =>
+            r.phone ? (
+              <a href={`tel:${digitsOnly(r.phone)}`} className="font-mono text-xs text-primary hover:underline">
+                {r.phone}
+              </a>
+            ) : (
+              <span className="text-xs text-muted-foreground">—</span>
+            ),
         },
         {
           id: 'gstin',
           header: 'GSTIN',
-          cell: (r) => <span className="font-mono text-xs">{r.gstin ?? '—'}</span>,
+          mobile: false,
+          cell: (r) => (
+            <span className="font-mono text-xs text-muted-foreground">{r.gstin ?? '—'}</span>
+          ),
         },
       ]}
-      actions={(r) =>
-        canDelete && !r.isWalkIn ? (
-          <DeleteButton action={() => deleteCustomerAction(r.id)} />
-        ) : null
-      }
+      actions={(r) => (
+        <div className="flex items-center justify-end gap-1">
+          {r.phone && waHref(r.phone) ? (
+            <a
+              href={waHref(r.phone)!}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={buttonClassName({ variant: 'secondary', size: 'sm' })}
+            >
+              WhatsApp
+            </a>
+          ) : null}
+          {canDelete && !r.isWalkIn ? (
+            <DeleteButton action={() => deleteCustomerAction(r.id)} />
+          ) : null}
+        </div>
+      )}
     />
   );
 }

@@ -14,26 +14,68 @@ export type ArticleListRow = {
   categoryName: string;
   variantSummary: string;
   variantCount: number;
+  /** Space-joined SKUs + size/color for search */
+  searchBlob: string;
 };
 
-export function ArticlesList({ rows, canWrite }: { rows: ArticleListRow[]; canWrite: boolean }) {
+export function ArticlesList({
+  rows,
+  canWrite,
+  brands,
+  categories,
+}: {
+  rows: ArticleListRow[];
+  canWrite: boolean;
+  brands: string[];
+  categories: string[];
+}) {
   return (
     <FilteredDataList
       rows={rows}
-      searchPlaceholder="Search article, code, brand…"
+      searchPlaceholder="Search name, code, SKU, size…"
       searchFn={(r, q) =>
         r.name.toLowerCase().includes(q) ||
         r.articleCode.toLowerCase().includes(q) ||
         r.brandName.toLowerCase().includes(q) ||
-        r.categoryName.toLowerCase().includes(q)
+        r.categoryName.toLowerCase().includes(q) ||
+        r.searchBlob.toLowerCase().includes(q) ||
+        r.variantSummary.toLowerCase().includes(q)
       }
+      filters={[
+        ...(brands.length > 1
+          ? [
+              {
+                id: 'brand',
+                label: 'Brand',
+                options: brands.map((b) => ({ value: b, label: b })),
+                predicate: (r: ArticleListRow, v: string) => r.brandName === v,
+              },
+            ]
+          : []),
+        ...(categories.length > 1
+          ? [
+              {
+                id: 'category',
+                label: 'Category',
+                options: categories.map((c) => ({ value: c, label: c })),
+                predicate: (r: ArticleListRow, v: string) => r.categoryName === v,
+              },
+            ]
+          : []),
+      ]}
       emptyTitle="No articles yet"
-      emptyDescription="Create brands and categories first, then add articles with variants."
+      emptyDescription="Create a brand and category, then add styles with size × color SKUs."
       emptyAction={
         canWrite ? (
           <div className="flex flex-wrap justify-center gap-2">
             <Link href="/brands" className={buttonClassName({ variant: 'secondary', size: 'md' })}>
               Brands
+            </Link>
+            <Link
+              href="/categories"
+              className={buttonClassName({ variant: 'secondary', size: 'md' })}
+            >
+              Categories
             </Link>
             <a href="#new-article" className={buttonClassName({ size: 'md' })}>
               Add article
@@ -42,11 +84,20 @@ export function ArticlesList({ rows, canWrite }: { rows: ArticleListRow[]; canWr
         ) : undefined
       }
       mobileTitle={(r) => r.name}
-      mobileMeta={(r) => `${r.articleCode} · ${r.variantCount} variants`}
+      mobileMeta={(r) =>
+        `${r.articleCode} · ${r.brandName} · ${r.variantSummary || 'No variants'}`
+      }
+      mobileTrailing={(r) => (
+        <span className="font-mono text-sm font-semibold tabular-nums text-foreground">
+          {r.variantCount}
+          <span className="ml-0.5 text-[10px] font-medium text-muted-foreground">SKU</span>
+        </span>
+      )}
       columns={[
         {
           id: 'article',
           header: 'Article',
+          mobile: false,
           cell: (r) => (
             <div>
               <div className="font-medium">{r.name}</div>
@@ -54,19 +105,45 @@ export function ArticlesList({ rows, canWrite }: { rows: ArticleListRow[]; canWr
             </div>
           ),
         },
-        { id: 'brand', header: 'Brand', cell: (r) => r.brandName },
-        { id: 'category', header: 'Category', cell: (r) => r.categoryName },
+        {
+          id: 'brand',
+          header: 'Brand',
+          mobile: false,
+          cell: (r) => r.brandName,
+        },
+        {
+          id: 'category',
+          header: 'Category',
+          mobile: false,
+          cell: (r) => r.categoryName,
+        },
         {
           id: 'variants',
           header: 'Variants',
+          mobile: false,
           cell: (r) => (
             <span className="font-mono text-xs">
-              {r.variantCount} — {r.variantSummary}
+              <span className="font-semibold tabular-nums">{r.variantCount}</span>
+              {r.variantSummary ? (
+                <span className="text-muted-foreground"> — {r.variantSummary}</span>
+              ) : null}
             </span>
           ),
         },
       ]}
-      actions={(r) => (canWrite ? <DeleteButton action={() => deleteArticleAction(r.id)} /> : null)}
+      actions={(r) =>
+        canWrite ? (
+          <div className="flex items-center justify-end gap-1">
+            <Link
+              href="/inventory"
+              className={buttonClassName({ variant: 'secondary', size: 'sm' })}
+            >
+              Stock
+            </Link>
+            <DeleteButton action={() => deleteArticleAction(r.id)} />
+          </div>
+        ) : null
+      }
     />
   );
 }

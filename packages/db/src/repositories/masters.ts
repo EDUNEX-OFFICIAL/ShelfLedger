@@ -200,6 +200,7 @@ export const dashboardRepository = {
       prevSales,
       openBalanceSales,
       unpaidCount,
+      draftCount,
       lowStockBalances,
       valuationBalances,
       recentSales,
@@ -214,6 +215,7 @@ export const dashboardRepository = {
         select: {
           id: true,
           totalAmount: true,
+          taxAmount: true,
           paymentStatus: true,
           invoiceDate: true,
         },
@@ -235,9 +237,13 @@ export const dashboardRepository = {
           paymentStatus: { in: ['UNPAID', 'PARTIAL'] },
         },
         select: {
+          id: true,
+          invoiceNo: true,
           totalAmount: true,
+          customer: { select: { name: true } },
           payments: { where: active, select: { amount: true } },
         },
+        orderBy: [{ invoiceDate: 'desc' }, { createdAt: 'desc' }],
       }),
       prisma.sale.count({
         where: {
@@ -247,9 +253,24 @@ export const dashboardRepository = {
           paymentStatus: { in: ['UNPAID', 'PARTIAL'] },
         },
       }),
+      prisma.sale.count({
+        where: {
+          organizationId,
+          ...active,
+          status: 'DRAFT',
+        },
+      }),
       prisma.inventoryBalance.findMany({
         where: { organizationId, ...active },
-        include: { variant: { select: { lowStockThreshold: true } } },
+        include: {
+          variant: {
+            select: {
+              sku: true,
+              lowStockThreshold: true,
+              article: { select: { name: true } },
+            },
+          },
+        },
       }),
       prisma.inventoryBalance.findMany({
         where: { organizationId, ...active, quantity: { gt: 0 } },
@@ -264,10 +285,13 @@ export const dashboardRepository = {
     ]);
 
     let salesTotal = 0;
+    let gstTotal = 0;
     for (const s of salesInRange) {
       salesTotal += Number(s.totalAmount);
+      gstTotal += Number(s.taxAmount);
     }
     salesTotal = Math.round((salesTotal + Number.EPSILON) * 100) / 100;
+    gstTotal = Math.round((gstTotal + Number.EPSILON) * 100) / 100;
 
     let previousSalesTotal = 0;
     for (const s of prevSales) {
@@ -275,10 +299,23 @@ export const dashboardRepository = {
     }
     previousSalesTotal = Math.round((previousSalesTotal + Number.EPSILON) * 100) / 100;
 
+    const unpaidRows = openBalanceSales
+      .map((s) => {
+        const paid = s.payments.reduce((sum, p) => sum + Number(p.amount), 0);
+        const due = Math.max(0, Number(s.totalAmount) - paid);
+        return {
+          id: s.id,
+          invoiceNo: s.invoiceNo,
+          customerName: s.customer.name,
+          due: Math.round((due + Number.EPSILON) * 100) / 100,
+        };
+      })
+      .filter((r) => r.due > 0)
+      .sort((a, b) => b.due - a.due);
+
     let unpaidOutstanding = 0;
-    for (const s of openBalanceSales) {
-      const paid = s.payments.reduce((sum, p) => sum + Number(p.amount), 0);
-      unpaidOutstanding += Math.max(0, Number(s.totalAmount) - paid);
+    for (const r of unpaidRows) {
+      unpaidOutstanding += r.due;
     }
     unpaidOutstanding = Math.round((unpaidOutstanding + Number.EPSILON) * 100) / 100;
 
@@ -297,10 +334,21 @@ export const dashboardRepository = {
     }
     stockValue = Math.round((stockValue + Number.EPSILON) * 100) / 100;
 
-    const lowStockCount = lowStockBalances.filter((b) => {
-      const threshold = Number(b.variant.lowStockThreshold);
-      return threshold > 0 && Number(b.quantity) <= threshold;
-    }).length;
+    const lowStockRows = lowStockBalances
+      .map((b) => {
+        const qty = Number(b.quantity);
+        const threshold = Number(b.variant.lowStockThreshold);
+        return {
+          sku: b.variant.sku,
+          articleName: b.variant.article.name,
+          qty,
+          threshold,
+        };
+      })
+      .filter((r) => r.threshold > 0 && r.qty <= r.threshold)
+      .sort((a, b) => a.qty - b.qty);
+
+    const lowStockCount = lowStockRows.length;
 
     const dayMap = new Map<string, { sales: number; invoices: number }>();
     const cursor = new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), from.getUTCDate()));
@@ -332,9 +380,13 @@ export const dashboardRepository = {
       previousSalesTotal,
       salesDeltaPct,
       invoiceCount: salesInRange.length,
+      gstTotal,
+      draftCount,
       unpaidCount,
       unpaidOutstanding,
+      unpaidPeek: unpaidRows.slice(0, 5),
       lowStockCount,
+      lowStockPeek: lowStockRows.slice(0, 5),
       stockValue,
       salesByDay: Array.from(dayMap.entries()).map(([date, v]) => ({
         date,

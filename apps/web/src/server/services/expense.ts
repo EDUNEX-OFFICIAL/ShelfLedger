@@ -25,8 +25,8 @@ export const expenseService = {
     return expenseCategoryRepository.list(user.organizationId);
   },
 
-  list(user: SessionUser) {
-    return expenseRepository.list(user.organizationId);
+  list(user: SessionUser, opts?: { from?: Date; to?: Date }) {
+    return expenseRepository.list(user.organizationId, opts);
   },
 
   async createCategory(user: SessionUser, name: string) {

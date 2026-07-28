@@ -99,7 +99,7 @@ export function SaleForm({
             setMessage(result.error);
             return;
           }
-          setMessage(`Draft created (${result.data.id.slice(0, 8)}…). Post it from the list.`);
+          setMessage('ok');
           setNotes('');
           setBillDiscount('0');
           setStockOverride(false);
@@ -272,7 +272,7 @@ export function SaleForm({
                 options={[...PAY_OPTIONS]}
               />
             </FormField>
-            <FormField id="sale-pay-amt" label="Payment amount" hint="Optional">
+            <FormField id="sale-pay-amt" label="Payment amount" hint="Leave empty to create unpaid draft">
               <Input
                 id="sale-pay-amt"
                 type="number"
@@ -326,7 +326,19 @@ export function SaleForm({
             />
           </FormField>
 
-          {message ? <p className="text-sm text-muted-foreground">{message}</p> : null}
+          {message === 'ok' ? (
+            <p className="text-sm font-medium text-success" role="status">
+              Draft saved.{' '}
+              <a href="#all-sales" className="underline underline-offset-2 hover:text-success/90">
+                Post it from All sales
+              </a>{' '}
+              to allocate an invoice and cut stock.
+            </p>
+          ) : message ? (
+            <p className="text-sm text-destructive" role="alert">
+              {message}
+            </p>
+          ) : null}
         </div>
       </SurfaceCard>
 

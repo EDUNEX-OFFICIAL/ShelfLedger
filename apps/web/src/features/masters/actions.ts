@@ -61,6 +61,7 @@ export async function createCategoryAction(input: unknown): Promise<ActionResult
     const data = categoryCreateSchema.parse(input);
     const category = await masterService.createCategory(user, data);
     revalidatePath('/categories');
+    revalidatePath('/articles');
     revalidatePath('/dashboard');
     return ok({ id: category.id });
   } catch (error) {
@@ -142,6 +143,9 @@ export async function createArticleAction(input: unknown): Promise<ActionResult<
     const article = await masterService.createArticle(user, data);
     revalidatePath('/articles');
     revalidatePath('/dashboard');
+    revalidatePath('/inventory');
+    revalidatePath('/sales');
+    revalidatePath('/sales/quick');
     return ok({ id: article.id });
   } catch (error) {
     return fail(error);

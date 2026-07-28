@@ -261,14 +261,7 @@ export function QuickSaleForm({
 
   const paymentBlock = (
     <div className="space-y-2">
-      <div className="flex items-center justify-between gap-2">
-        <Label>Payment</Label>
-        <span className="hidden items-center gap-1 text-[11px] text-muted-foreground md:inline-flex">
-          <HotkeyBadge>1</HotkeyBadge>
-          <HotkeyBadge>2</HotkeyBadge>
-          <HotkeyBadge>3</HotkeyBadge>
-        </span>
-      </div>
+      <Label>Payment</Label>
       <div className="grid grid-cols-3 gap-2" role="group" aria-label="Payment method">
         {PAY_OPTIONS.map((opt) => {
           const selected = payMethod === opt.value;
@@ -278,26 +271,27 @@ export function QuickSaleForm({
               key={opt.value}
               type="button"
               aria-pressed={selected}
+              aria-keyshortcuts={opt.hotkey}
               className={cn(
-                'flex h-12 flex-col items-center justify-center gap-0.5 rounded-lg border text-sm font-medium transition duration-150',
+                'relative flex h-11 items-center justify-center gap-1.5 rounded-lg border px-2 text-sm font-medium leading-none transition duration-150',
                 selected
                   ? 'border-primary bg-primary text-primary-foreground shadow-sm'
                   : 'border-border/80 bg-card text-muted-foreground hover:bg-muted',
               )}
               onClick={() => setPayMethod(opt.value)}
             >
-              <span className="flex items-center gap-1.5">
-                <Icon className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
-                {opt.label}
-              </span>
-              <span
+              <Icon className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
+              <span className="leading-none">{opt.label}</span>
+              <kbd
                 className={cn(
-                  'hidden font-mono text-[10px] md:inline',
-                  selected ? 'text-primary-foreground/70' : 'text-muted-foreground',
+                  'pointer-events-none absolute right-1.5 top-1.5 hidden h-3.5 min-w-[0.875rem] items-center justify-center rounded border px-0.5 font-mono text-[9px] font-medium leading-none md:inline-flex',
+                  selected
+                    ? 'border-primary-foreground/25 text-primary-foreground/75'
+                    : 'border-border/80 text-muted-foreground',
                 )}
               >
                 {opt.hotkey}
-              </span>
+              </kbd>
             </button>
           );
         })}
