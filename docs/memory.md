@@ -59,6 +59,8 @@
 - **UI consistency page-by-page: complete** (dashboard through settings)
 - **Mobile-first (locked):** phones/tablets are primary staff devices — ADR-012 / `docs/design.md`
 - **Quick Sale:** `/sales/quick` — walk-in default, pay-in-full, sticky Punch sale → invoice; dashboard primary CTA
+- **Quick Sale UX (desktop):** wider layout + `lg` 2-col sticky rail; denser item rows; phone lookup; stock hint; F2/1/2/3/+ shortcuts; punch block hints
+- **Quick Sale look:** unified checkout rail; hero total; payment icons + filled selected; Punch spinner/Posted; items ticket + stock badges; mobile sticky mini total; micro-motion utilities
 
 ## Pending / follow-ups
 

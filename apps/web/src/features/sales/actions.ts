@@ -6,12 +6,28 @@ import {
   saleCreateSchema,
   quickSaleSchema,
   exchangeCreateSchema,
+  normalizeCustomerPhone,
 } from '@shelfledger/validators';
 import { requireCustomerWrite, requireSell, requireSession, requireMasterWrite } from '@/server/auth/guards';
 import { customerService } from '@/server/services/customer';
 import { saleService } from '@/server/services/sale';
 import { exchangeService } from '@/server/services/exchange';
 import { fail, ok, type ActionResult } from '@/server/action-result';
+
+export async function lookupCustomerByPhoneAction(
+  phone: string,
+): Promise<ActionResult<{ id: string; name: string; phone: string } | null>> {
+  try {
+    const user = await requireSession();
+    const normalized = normalizeCustomerPhone(phone);
+    if (normalized.length < 10) return ok(null);
+    const customer = await customerService.findByPhone(user, normalized);
+    if (!customer || customer.isWalkIn || !customer.phone) return ok(null);
+    return ok({ id: customer.id, name: customer.name, phone: customer.phone });
+  } catch (error) {
+    return fail(error);
+  }
+}
 
 export async function createCustomerAction(input: unknown): Promise<ActionResult<{ id: string }>> {
   try {

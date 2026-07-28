@@ -178,10 +178,20 @@ Ship intentional motions:
 
 - Design and QA counter flows at **~375px width first**, then enhance upward.
 - Primary actions: min touch target **44×44px**; prefer full-width buttons on small screens.
-- Sale punch (**Quick Sale**): one tall scrollable column — SKU search → lines → total → payment method chips → sticky **Punch sale**.
+- Sale punch (**Quick Sale**): mobile — customer → SKU lines → payment/total → sticky **Punch sale**; `lg+` — items left, sticky right rail (customer + payment + totals + punch).
 - Avoid hover-only affordances; no desktop-only critical paths.
 - Safe-area aware bottom bars (`env(safe-area-inset-bottom)`) for punch CTAs.
 - Desktop may add keyboard shortcuts and denser tables; never remove the mobile path.
+
+### Quick Sale enhancements (desktop progressive)
+
+- Width: `max-w-lg` → `md:max-w-3xl` / `lg:max-w-5xl`
+- `md+` denser item rows: SKU | Qty | Price | line total (incl. GST preview) in one ticket surface
+- SKU auto-focus; selecting on last row adds next line (barcode-ready); search matches SKU + barcode keywords
+- Phone lookup autofills name when customer exists; stock as Badge (muted / warning / destructive)
+- Shortcuts: **F2** punch · **1/2/3** Cash/UPI/Card · **+** add line (when not typing)
+- Disabled Punch shows why (name / mobile / SKU); “Full draft sale” is a quiet text link
+- Look: single checkout rail card; hero total; filled primary payment chips + icons; stronger Punch + spinner / Posted flash; mobile sticky mini total strip; `animate-qs-row-in` / `animate-qs-punch-ok`
 
 ### Quick Sale vs full draft form
 

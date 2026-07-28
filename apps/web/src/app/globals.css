@@ -183,6 +183,37 @@
     height: 0;
     width: 0;
   }
+
+  /* Quick Sale / entry micro-motion (design.md §7) */
+  @keyframes qs-row-in {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes qs-punch-ok {
+    from {
+      opacity: 0;
+      transform: translateY(2px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-qs-row-in {
+    animation: qs-row-in 160ms ease-out both;
+  }
+
+  .animate-qs-punch-ok {
+    animation: qs-punch-ok 200ms ease-out both;
+  }
 }
 
 @media print {

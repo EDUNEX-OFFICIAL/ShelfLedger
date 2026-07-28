@@ -10,6 +10,8 @@ export type SelectOption = {
   value: string;
   label: string;
   disabled?: boolean;
+  /** Extra text matched by searchable filter (e.g. barcode, SKU). */
+  keywords?: string;
 };
 
 const SEARCHABLE_THRESHOLD = 8;
@@ -29,13 +31,39 @@ type SharedProps = {
   required?: boolean;
   className?: string;
   triggerClassName?: string;
+  /** Focus the trigger on mount / when this becomes true. */
+  autoFocus?: boolean;
+  /** Ref to the trigger button (for programmatic focus). */
+  triggerRef?: React.Ref<HTMLButtonElement>;
   'aria-invalid'?: boolean;
   'aria-label'?: string;
 };
 
+function assignRef<T>(ref: React.Ref<T> | undefined, value: T | null) {
+  if (!ref) return;
+  if (typeof ref === 'function') ref(value);
+  else (ref as React.MutableRefObject<T | null>).current = value;
+}
+
 function useAutoSearchable(options: SelectOption[], searchable?: boolean) {
   if (typeof searchable === 'boolean') return searchable;
   return options.length >= SEARCHABLE_THRESHOLD;
+}
+
+function optionMatches(opt: SelectOption, q: string) {
+  if (opt.label.toLowerCase().includes(q)) return true;
+  if (opt.keywords?.toLowerCase().includes(q)) return true;
+  return false;
+}
+
+/** Prefer exact barcode/SKU keyword match for scanner Enter. */
+function rankFiltered(options: SelectOption[], q: string) {
+  if (!q) return options;
+  const exact = options.filter(
+    (o) => o.keywords?.toLowerCase() === q || o.label.toLowerCase().startsWith(q),
+  );
+  const rest = options.filter((o) => !exact.includes(o));
+  return [...exact, ...rest];
 }
 
 export function Select({
@@ -51,6 +79,8 @@ export function Select({
   required,
   className,
   triggerClassName,
+  autoFocus,
+  triggerRef,
   'aria-invalid': ariaInvalid,
   'aria-label': ariaLabel,
 }: SharedProps) {
@@ -70,6 +100,8 @@ export function Select({
         required={required}
         className={className}
         triggerClassName={triggerClassName}
+        autoFocus={autoFocus}
+        triggerRef={triggerRef}
         aria-invalid={ariaInvalid}
         aria-label={ariaLabel}
       />
@@ -89,6 +121,8 @@ export function Select({
       required={required}
       className={className}
       triggerClassName={triggerClassName}
+      autoFocus={autoFocus}
+      triggerRef={triggerRef}
       aria-invalid={ariaInvalid}
       aria-label={ariaLabel}
     />
@@ -107,11 +141,20 @@ function SimpleSelect({
   required,
   className,
   triggerClassName,
+  autoFocus,
+  triggerRef,
   'aria-invalid': ariaInvalid,
   'aria-label': ariaLabel,
 }: SharedProps) {
   // Radix disallows empty string values — map "" to undefined for display.
   const radixValue = value || undefined;
+  const localTriggerRef = React.useRef<HTMLButtonElement>(null);
+
+  React.useEffect(() => {
+    if (!autoFocus) return;
+    const t = window.setTimeout(() => localTriggerRef.current?.focus(), 0);
+    return () => window.clearTimeout(t);
+  }, [autoFocus]);
 
   return (
     <div className={cn('relative', className)}>
@@ -125,79 +168,80 @@ function SimpleSelect({
           onChange={() => {}}
         />
       ) : null}
-    <SelectPrimitive.Root
-      value={radixValue}
-      onValueChange={(next) => {
-        if (next === '__clear__') {
-          onValueChange('');
-          return;
-        }
-        onValueChange(next);
-      }}
-      disabled={disabled}
-    >
-      <SelectPrimitive.Trigger
-        id={id}
-        aria-invalid={ariaInvalid}
-        aria-label={ariaLabel}
-        className={cn(
-          'flex h-10 w-full items-center justify-between gap-2 rounded-lg border border-border/80 bg-card px-3 text-left text-sm shadow-sm outline-none transition',
-          'hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
-          'disabled:cursor-not-allowed disabled:opacity-50',
-          'data-[placeholder]:text-muted-foreground',
-          ariaInvalid && 'border-destructive',
-          triggerClassName,
-        )}
+      <SelectPrimitive.Root
+        value={radixValue}
+        onValueChange={(next) => {
+          if (next === '__clear__') {
+            onValueChange('');
+            return;
+          }
+          onValueChange(next);
+        }}
+        disabled={disabled}
       >
-        <SelectPrimitive.Value placeholder={placeholder} />
-        <SelectPrimitive.Icon asChild>
-          <ChevronDown className="h-4 w-4 shrink-0 opacity-50" aria-hidden />
-        </SelectPrimitive.Icon>
-      </SelectPrimitive.Trigger>
-      <SelectPrimitive.Portal>
-        <SelectPrimitive.Content
-          position="popper"
-          sideOffset={4}
+        <SelectPrimitive.Trigger
+          id={id}
+          ref={(node) => {
+            localTriggerRef.current = node;
+            assignRef(triggerRef, node);
+          }}
+          aria-invalid={ariaInvalid}
+          aria-label={ariaLabel}
           className={cn(
-            'z-50 max-h-72 min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-lg border border-border/80 bg-card text-foreground shadow-md',
-            'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',
+            'flex h-10 w-full items-center justify-between gap-2 rounded-lg border border-border/80 bg-card px-3 text-left text-sm shadow-sm outline-none transition',
+            'hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+            'disabled:cursor-not-allowed disabled:opacity-50',
+            'data-[placeholder]:text-muted-foreground',
+            ariaInvalid && 'border-destructive',
+            triggerClassName,
           )}
         >
-          <SelectPrimitive.Viewport className="p-1">
-            {allowClear ? (
-              <SelectPrimitive.Item
-                value="__clear__"
-                className={selectItemClass}
-              >
-                <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
-                  <SelectPrimitive.ItemIndicator>
-                    <Check className="h-3.5 w-3.5" />
-                  </SelectPrimitive.ItemIndicator>
-                </span>
-                <SelectPrimitive.ItemText>
-                  <span className="text-muted-foreground">{clearLabel}</span>
-                </SelectPrimitive.ItemText>
-              </SelectPrimitive.Item>
-            ) : null}
-            {options.map((opt) => (
-              <SelectPrimitive.Item
-                key={opt.value}
-                value={opt.value}
-                disabled={opt.disabled}
-                className={selectItemClass}
-              >
-                <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
-                  <SelectPrimitive.ItemIndicator>
-                    <Check className="h-3.5 w-3.5" />
-                  </SelectPrimitive.ItemIndicator>
-                </span>
-                <SelectPrimitive.ItemText>{opt.label}</SelectPrimitive.ItemText>
-              </SelectPrimitive.Item>
-            ))}
-          </SelectPrimitive.Viewport>
-        </SelectPrimitive.Content>
-      </SelectPrimitive.Portal>
-    </SelectPrimitive.Root>
+          <SelectPrimitive.Value placeholder={placeholder} />
+          <SelectPrimitive.Icon asChild>
+            <ChevronDown className="h-4 w-4 shrink-0 opacity-50" aria-hidden />
+          </SelectPrimitive.Icon>
+        </SelectPrimitive.Trigger>
+        <SelectPrimitive.Portal>
+          <SelectPrimitive.Content
+            position="popper"
+            sideOffset={4}
+            className={cn(
+              'z-50 max-h-72 min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-lg border border-border/80 bg-card text-foreground shadow-md',
+              'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',
+            )}
+          >
+            <SelectPrimitive.Viewport className="p-1">
+              {allowClear ? (
+                <SelectPrimitive.Item value="__clear__" className={selectItemClass}>
+                  <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
+                    <SelectPrimitive.ItemIndicator>
+                      <Check className="h-3.5 w-3.5" />
+                    </SelectPrimitive.ItemIndicator>
+                  </span>
+                  <SelectPrimitive.ItemText>
+                    <span className="text-muted-foreground">{clearLabel}</span>
+                  </SelectPrimitive.ItemText>
+                </SelectPrimitive.Item>
+              ) : null}
+              {options.map((opt) => (
+                <SelectPrimitive.Item
+                  key={opt.value}
+                  value={opt.value}
+                  disabled={opt.disabled}
+                  className={selectItemClass}
+                >
+                  <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
+                    <SelectPrimitive.ItemIndicator>
+                      <Check className="h-3.5 w-3.5" />
+                    </SelectPrimitive.ItemIndicator>
+                  </span>
+                  <SelectPrimitive.ItemText>{opt.label}</SelectPrimitive.ItemText>
+                </SelectPrimitive.Item>
+              ))}
+            </SelectPrimitive.Viewport>
+          </SelectPrimitive.Content>
+        </SelectPrimitive.Portal>
+      </SelectPrimitive.Root>
     </div>
   );
 }
@@ -220,12 +264,15 @@ function SearchableSelect({
   required,
   className,
   triggerClassName,
+  autoFocus,
+  triggerRef,
   'aria-invalid': ariaInvalid,
   'aria-label': ariaLabel,
 }: SharedProps) {
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState('');
   const inputRef = React.useRef<HTMLInputElement>(null);
+  const localTriggerRef = React.useRef<HTMLButtonElement>(null);
   const listRef = React.useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = React.useState(0);
 
@@ -234,8 +281,17 @@ function SearchableSelect({
   const filtered = React.useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return options;
-    return options.filter((o) => o.label.toLowerCase().includes(q));
+    return rankFiltered(
+      options.filter((o) => optionMatches(o, q)),
+      q,
+    );
   }, [options, query]);
+
+  React.useEffect(() => {
+    if (!autoFocus) return;
+    const t = window.setTimeout(() => localTriggerRef.current?.focus(), 0);
+    return () => window.clearTimeout(t);
+  }, [autoFocus]);
 
   React.useEffect(() => {
     if (!open) {
@@ -290,124 +346,127 @@ function SearchableSelect({
           onChange={() => {}}
         />
       ) : null}
-    <PopoverPrimitive.Root open={open} onOpenChange={setOpen} modal={false}>
-      <PopoverPrimitive.Trigger asChild>
-        <button
-          type="button"
-          id={id}
-          disabled={disabled}
-          aria-invalid={ariaInvalid}
-          aria-label={ariaLabel}
-          aria-expanded={open}
-          aria-haspopup="listbox"
-          aria-required={required}
-          className={cn(
-            'flex h-10 w-full items-center justify-between gap-2 rounded-lg border border-border/80 bg-card px-3 text-left text-sm shadow-sm outline-none transition',
-            'hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
-            'disabled:cursor-not-allowed disabled:opacity-50',
-            ariaInvalid && 'border-destructive',
-            triggerClassName,
-          )}
-        >
-          <span className={cn('truncate', !selected && 'text-muted-foreground')}>
-            {selected?.label ?? placeholder}
-          </span>
-          <span className="flex shrink-0 items-center gap-1">
-            {allowClear && value ? (
-              <span
-                role="button"
-                tabIndex={-1}
-                className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  onValueChange('');
-                }}
-                aria-label="Clear"
-              >
-                <X className="h-3.5 w-3.5" />
-              </span>
-            ) : null}
-            <ChevronsUpDown className="h-4 w-4 opacity-50" aria-hidden />
-          </span>
-        </button>
-      </PopoverPrimitive.Trigger>
-      <PopoverPrimitive.Portal>
-        <PopoverPrimitive.Content
-          align="start"
-          sideOffset={4}
-          className={cn(
-            'z-50 w-[var(--radix-popover-trigger-width)] overflow-hidden rounded-lg border border-border/80 bg-card shadow-md outline-none',
-            'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
-          )}
-          onKeyDown={onKeyDown}
-        >
-          <div className="flex items-center gap-2 border-b border-border/80 px-3 py-2">
-            <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
-            <input
-              ref={inputRef}
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search…"
-              className="h-8 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-              aria-label="Filter options"
-            />
-          </div>
-          <div
-            ref={listRef}
-            role="listbox"
-            className="max-h-60 overflow-y-auto p-1"
-          >
-            {allowClear ? (
-              <button
-                type="button"
-                role="option"
-                aria-selected={!value}
-                className={cn(
-                  'flex w-full items-center rounded-md px-2 py-2 text-left text-sm text-muted-foreground',
-                  !value ? 'bg-accent text-accent-foreground' : 'hover:bg-muted',
-                )}
-                onClick={() => pick('')}
-              >
-                {clearLabel}
-              </button>
-            ) : null}
-            {filtered.length === 0 ? (
-              <p className="px-2 py-6 text-center text-sm text-muted-foreground">No matches</p>
-            ) : (
-              filtered.map((opt, index) => {
-                const isActive = index === activeIndex;
-                const isSelected = opt.value === value;
-                return (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    role="option"
-                    data-index={index}
-                    aria-selected={isSelected}
-                    disabled={opt.disabled}
-                    className={cn(
-                      'flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm outline-none',
-                      isActive && 'bg-accent text-accent-foreground',
-                      !isActive && 'hover:bg-muted',
-                      opt.disabled && 'pointer-events-none opacity-50',
-                    )}
-                    onMouseEnter={() => setActiveIndex(index)}
-                    onClick={() => pick(opt.value)}
-                  >
-                    <Check
-                      className={cn('h-3.5 w-3.5 shrink-0', isSelected ? 'opacity-100' : 'opacity-0')}
-                      aria-hidden
-                    />
-                    <span className="truncate">{opt.label}</span>
-                  </button>
-                );
-              })
+      <PopoverPrimitive.Root open={open} onOpenChange={setOpen} modal={false}>
+        <PopoverPrimitive.Trigger asChild>
+          <button
+            type="button"
+            id={id}
+            ref={(node) => {
+              localTriggerRef.current = node;
+              assignRef(triggerRef, node);
+            }}
+            disabled={disabled}
+            aria-invalid={ariaInvalid}
+            aria-label={ariaLabel}
+            aria-expanded={open}
+            aria-haspopup="listbox"
+            aria-required={required}
+            className={cn(
+              'flex h-10 w-full items-center justify-between gap-2 rounded-lg border border-border/80 bg-card px-3 text-left text-sm shadow-sm outline-none transition',
+              'hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+              'disabled:cursor-not-allowed disabled:opacity-50',
+              ariaInvalid && 'border-destructive',
+              triggerClassName,
             )}
-          </div>
-        </PopoverPrimitive.Content>
-      </PopoverPrimitive.Portal>
-    </PopoverPrimitive.Root>
+          >
+            <span className={cn('truncate', !selected && 'text-muted-foreground')}>
+              {selected?.label ?? placeholder}
+            </span>
+            <span className="flex shrink-0 items-center gap-1">
+              {allowClear && value ? (
+                <span
+                  role="button"
+                  tabIndex={-1}
+                  className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onValueChange('');
+                  }}
+                  aria-label="Clear"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </span>
+              ) : null}
+              <ChevronsUpDown className="h-4 w-4 opacity-50" aria-hidden />
+            </span>
+          </button>
+        </PopoverPrimitive.Trigger>
+        <PopoverPrimitive.Portal>
+          <PopoverPrimitive.Content
+            align="start"
+            sideOffset={4}
+            className={cn(
+              'z-50 w-[var(--radix-popover-trigger-width)] overflow-hidden rounded-lg border border-border/80 bg-card shadow-md outline-none',
+              'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
+            )}
+            onKeyDown={onKeyDown}
+          >
+            <div className="flex items-center gap-2 border-b border-border/80 px-3 py-2">
+              <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+              <input
+                ref={inputRef}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search…"
+                className="h-8 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                aria-label="Filter options"
+              />
+            </div>
+            <div ref={listRef} role="listbox" className="max-h-60 overflow-y-auto p-1">
+              {allowClear ? (
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={!value}
+                  className={cn(
+                    'flex w-full items-center rounded-md px-2 py-2 text-left text-sm text-muted-foreground',
+                    !value ? 'bg-accent text-accent-foreground' : 'hover:bg-muted',
+                  )}
+                  onClick={() => pick('')}
+                >
+                  {clearLabel}
+                </button>
+              ) : null}
+              {filtered.length === 0 ? (
+                <p className="px-2 py-6 text-center text-sm text-muted-foreground">No matches</p>
+              ) : (
+                filtered.map((opt, index) => {
+                  const isActive = index === activeIndex;
+                  const isSelected = opt.value === value;
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      role="option"
+                      data-index={index}
+                      aria-selected={isSelected}
+                      disabled={opt.disabled}
+                      className={cn(
+                        'flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm outline-none',
+                        isActive && 'bg-accent text-accent-foreground',
+                        !isActive && 'hover:bg-muted',
+                        opt.disabled && 'pointer-events-none opacity-50',
+                      )}
+                      onMouseEnter={() => setActiveIndex(index)}
+                      onClick={() => pick(opt.value)}
+                    >
+                      <Check
+                        className={cn(
+                          'h-3.5 w-3.5 shrink-0',
+                          isSelected ? 'opacity-100' : 'opacity-0',
+                        )}
+                        aria-hidden
+                      />
+                      <span className="truncate">{opt.label}</span>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </PopoverPrimitive.Content>
+        </PopoverPrimitive.Portal>
+      </PopoverPrimitive.Root>
     </div>
   );
 }

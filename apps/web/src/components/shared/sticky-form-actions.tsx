@@ -32,3 +32,7 @@ export function StickyFormActions({
 /** Extra bottom padding so sticky CTA does not cover form fields on mobile. */
 export const stickyFormPadClass =
   'pb-[calc(6.5rem+env(safe-area-inset-bottom))] md:pb-0';
+
+/** Taller sticky bar (e.g. Quick Sale mini total + Punch). */
+export const stickyFormPadTallClass =
+  'pb-[calc(9.75rem+env(safe-area-inset-bottom))] md:pb-0';

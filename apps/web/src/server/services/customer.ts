@@ -25,6 +25,10 @@ export const customerService = {
     return customerRepository.findWalkIn(user.organizationId);
   },
 
+  findByPhone(user: SessionUser, phone: string) {
+    return customerRepository.findByPhone(user.organizationId, phone);
+  },
+
   /**
    * Quick Sale: find by normalized phone or create a named customer for marketing DB.
    * Never attaches to the system walk-in row when phone is captured.
