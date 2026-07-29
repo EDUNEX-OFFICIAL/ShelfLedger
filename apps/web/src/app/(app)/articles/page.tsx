@@ -31,7 +31,7 @@ export default async function ArticlesPage() {
     <div className="space-y-6">
       <PageHeader
         title="Articles"
-        description="Footwear styles with size × color SKUs. Quantity lives in Inventory / stock ledger — not on this page."
+        description="Footwear styles with size × colour item codes. Quantity lives in Inventory / stock history — not on this page."
         actions={
           <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:justify-end">
             {canWrite ? (
@@ -56,7 +56,7 @@ export default async function ArticlesPage() {
           <span className="font-medium text-foreground">{articles.length}</span> style
           {articles.length === 1 ? '' : 's'}
           {' · '}
-          <span className="font-medium text-foreground">{totalVariants}</span> SKU
+          <span className="font-medium text-foreground">{totalVariants}</span> item code
           {totalVariants === 1 ? '' : 's'}
         </p>
       ) : null}
@@ -64,7 +64,7 @@ export default async function ArticlesPage() {
       <section id="all-articles" className="scroll-mt-24 space-y-3">
         <SectionHeader
           title="All articles"
-          description="Search by name, article code, or SKU. Filter by brand or category."
+          description="Search by name, article code, or item code. Filter by brand or category."
           actions={
             <div className="flex flex-wrap gap-2">
               <Link href="/brands" className="text-xs font-semibold text-primary hover:underline">
@@ -106,7 +106,7 @@ export default async function ArticlesPage() {
         <section id="new-article" className="scroll-mt-24 space-y-3">
           <SectionHeader
             title="Add article"
-            description="Style + brand/category, then size × color variants (SKU, MRP, sell price)."
+            description="Style + brand/category, then size × colour (item code, MRP, sell price)."
           />
           <ArticleForm
             canWrite={canWrite}

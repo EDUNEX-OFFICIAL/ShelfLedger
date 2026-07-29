@@ -74,7 +74,7 @@ export function PurchasesList({
         },
       ]}
       emptyTitle="No purchases yet"
-      emptyDescription="Add a vendor and SKUs, then enter the vendor’s bill below to receive stock."
+      emptyDescription="Add a vendor and item codes, then enter the vendor’s bill below to receive stock."
       emptyAction={
         canWrite ? (
           <div className="flex flex-wrap justify-center gap-2">

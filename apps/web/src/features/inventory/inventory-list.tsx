@@ -30,7 +30,7 @@ export function InventoryBalancesList({
   return (
     <FilteredDataList
       rows={rows}
-      searchPlaceholder="Search SKU, article, size, location…"
+      searchPlaceholder="Search item code, article, size, location…"
       searchFn={(r, q) =>
         r.sku.toLowerCase().includes(q) ||
         r.articleName.toLowerCase().includes(q) ||
@@ -50,15 +50,15 @@ export function InventoryBalancesList({
         },
       ]}
       emptyTitle="No stock balances yet"
-      emptyDescription="Post opening stock or a purchase to create on-hand balances via the ledger."
+      emptyDescription="Post starting stock or a purchase to put qty on the shelf."
       emptyAction={
         canWrite ? (
           <div className="flex flex-wrap justify-center gap-2">
             <Link href="/articles" className={buttonClassName({ variant: 'secondary', size: 'md' })}>
-              Articles / SKUs
+              Articles / item codes
             </Link>
             <a href="#opening-stock" className={buttonClassName({ size: 'md' })}>
-              Opening stock
+              Starting stock
             </a>
           </div>
         ) : undefined
@@ -87,7 +87,7 @@ export function InventoryBalancesList({
       columns={[
         {
           id: 'sku',
-          header: 'SKU',
+          header: 'Item code',
           mobile: false,
           cell: (r) => <SkuText value={r.sku} />,
         },
@@ -145,7 +145,7 @@ export function InventoryBalancesList({
           href={`/stock-ledger?sku=${encodeURIComponent(r.sku)}`}
           className={buttonClassName({ variant: 'secondary', size: 'sm' })}
         >
-          Ledger
+          History
         </Link>
       )}
     />

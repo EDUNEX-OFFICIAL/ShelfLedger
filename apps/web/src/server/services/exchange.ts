@@ -143,7 +143,7 @@ export const exchangeService = {
           },
           include: { article: true },
         });
-        if (!variant) throw new ValidationError(`Variant not found: ${rep.variantId}`);
+        if (!variant) throw new ValidationError('Item not found');
 
         const taxRate = rep.taxRateId
           ? taxById.get(rep.taxRateId)

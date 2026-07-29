@@ -2,7 +2,7 @@
 
 **Current Phase:** Phase 6.1 Quick Sale complete  
 **Path:** `/srv/ShelfLedger`  
-**Last Updated:** 2026-07-28
+**Last Updated:** 2026-07-29
 
 ## Completed
 
@@ -20,6 +20,16 @@
 |-------|------|----------|
 | owner@shelfledger.local | OWNER | ChangeMe!Owner1 |
 | cashier@shelfledger.local | CASHIER | ChangeMe!Cashier1 |
+
+## Seed catalog (footwear)
+
+- Idempotent via marker brand code `BATA` (`packages/db/prisma/seed-catalog.ts`)
+- Soft-deletes prior active brands/categories/articles/variants/vendors before first catalog seed
+- **14 brands** (Bata, Liberty, Sparx, Campus, Woodland, Red Tape, Puma, Adidas, Nike, Crocs, Metro, Action, Paragon, Relaxo)
+- **28 articles** with trade-style article codes + size/color variants + opening stock
+- **5 vendors** (Agra / Mumbai / Delhi / Relaxo stockist / Chennai)
+- Default org name: `City Walk Footwear` (Maharashtra `27`)
+- **Sim ops:** `pnpm db:simulate` → ~100 ops (15 purchases, 65 sales, 15 expenses, 5 adjustments); marker `SIM_OPS_V1`; idempotent
 
 ## Inventory invariants
 
@@ -44,7 +54,7 @@
 
 ## UI notes
 
-- Global search: `⌘K` / top-bar search (invoices, customers, SKUs, vendors, brands, articles)
+- Global search: `⌘K` / top-bar search (invoices, customers, item codes, vendors, brands, articles)
 - Lists: search + filters; mobile chip layout under `md`
 - Dashboard: Today / 7d / 30d sales KPIs + recent sales; charts + catalog strip **user-togglable** (localStorage; catalog **default off**); Needs attention peeks; GST meta + draft link; mobile recent chips open invoice
 - **UI consistency (v1.4):** type/button/card tokens locked in `docs/design.md` §14 — `SectionHeader`, `SurfaceCard`, `buttonClassName`, segmented period
@@ -55,8 +65,9 @@
 - **Reports pass done:** `/reports` — Today/7d/30d/Month + Custom; sales invoice + low-stock mobile lists; GST detail without IGST row; purchases/expenses link-out; `#low-stock` / `#sales-gst` anchors
 - **Settings pass done:** `/settings` — org FormField + address2/email; FY month select; sticky Save; VIEWER read-only profile; tax list-first + auto CGST/SGST split; sequence cards; Staff CTA
 - **Staff pass done:** `/staff` — list-first; human roles; You badge; self lock; dirty Save; role hints; Settings CTA; create form below
-- **Inventory + exchanges + stock ledger pass done:** Inventory list-first + Ledger→`?sku=`; Exchanges invoice-first; opening/adjust collapsed; **stock ledger** audit list (type/dir/period filters, ±qty color, sale→invoice, `?sku=` deep link)
-- **Masters pass done:** **articles** list-first + SKU search; **brands** list-first + code suggest + Articles CTA; **categories** tree list (root→sub) + roots-only parent select; customers phone/WhatsApp; vendors GSTIN/Net terms
+- **Inventory + exchanges + stock history pass done:** Inventory list-first + History→`?sku=`; Exchanges invoice-first; starting/adjust collapsed; **stock history** audit list (type/dir/period filters, ±qty color, sale→invoice, `?sku=` deep link)
+- **Masters pass done:** **articles** list-first + item-code search; **brands** list-first + code suggest + Articles CTA; **categories** tree list (root→sub) + roots-only parent select; customers phone/WhatsApp; vendors GSTIN/Net terms
+- **Shop language (UI):** Stock Ledger→Stock history; SKU→Item code; Variants→Size & colour; Opening stock→Starting stock (URLs/DB unchanged)
 - **UI leftovers pass done:** ListToolbar/ConfirmDialog/toast/command palette radius; Post sale/purchase ConfirmDialog; purchase return dialog (no prompt); login §14; dashboard P1 metrics (outstanding ₹, vs-prior %, `/sales?payment=OPEN`)
 - **Sticky CTA + FormField pass:** shared `StickyFormActions` on Quick Sale, draft sale, purchase, exchange; FormField on those entry forms
 - **Pre-burn-in polish:** masters FormField (brand/category/vendor/customer/article); dashboard Low stock → `/reports#low-stock`; success/error micro-UX on master forms

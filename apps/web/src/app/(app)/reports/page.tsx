@@ -158,7 +158,7 @@ export default async function ReportsPage({
           status={
             lowStock.rows.length > 0
               ? `${lowStock.rows.length} low stock`
-              : `${valuation.rows.length} on-hand SKUs`
+              : `${valuation.rows.length} on-hand item codes`
           }
           statusTone={lowStock.rows.length > 0 ? 'warn' : 'neutral'}
         />
@@ -269,7 +269,7 @@ export default async function ReportsPage({
         />
         {lowStock.rows.length > 0 ? (
           <p className="text-xs text-muted-foreground">
-            <span className="font-medium text-warning">{lowStock.rows.length}</span> SKU
+            <span className="font-medium text-warning">{lowStock.rows.length}</span> item code
             {lowStock.rows.length === 1 ? '' : 's'} need attention
           </p>
         ) : null}

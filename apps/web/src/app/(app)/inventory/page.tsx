@@ -58,14 +58,14 @@ export default async function InventoryPage({
     <div className="space-y-6">
       <PageHeader
         title="Inventory"
-        description="On-hand qty from the stock ledger — never edit balances directly."
+        description="On-hand qty from stock history — never edit balances directly."
         actions={
           <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:justify-end">
             {canWrite ? (
               <>
                 <a href="#opening-stock" className={buttonClassName({ size: 'lg' })}>
                   <ClipboardList className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-                  Opening stock
+                  Starting stock
                 </a>
                 <a
                   href="#adjustments"
@@ -81,7 +81,7 @@ export default async function InventoryPage({
               className={buttonClassName({ variant: 'ghost', size: 'md' })}
             >
               <ScrollText className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-              Ledger
+              History
             </Link>
           </div>
         }
@@ -118,7 +118,7 @@ export default async function InventoryPage({
 
       {initialStock === 'low' ? (
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/70 bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-          <span>Showing low-stock SKUs only.</span>
+          <span>Showing low-stock item codes only.</span>
           <Link href="/inventory" className="font-semibold text-primary hover:underline">
             Show all
           </Link>
@@ -128,13 +128,13 @@ export default async function InventoryPage({
       <section id="balances" className="scroll-mt-24 space-y-3">
         <SectionHeader
           title="On-hand balances"
-          description="Search a SKU to see qty. Low stock is highlighted."
+          description="Search an item code to see qty. Low stock is highlighted."
           actions={
             <Link
               href="/articles"
               className="text-xs font-semibold text-primary hover:underline"
             >
-              Manage SKUs
+              Manage item codes
             </Link>
           }
         />
@@ -149,8 +149,8 @@ export default async function InventoryPage({
         <>
           <InventoryActionPanel
             id="opening-stock"
-            title="Opening stock"
-            description="First-time qty + unit cost for a SKU. Posts through the stock ledger."
+            title="Starting stock"
+            description="First-time qty + unit cost for an item code. Saved in stock history."
           >
             <OpeningStockForm canWrite={canWrite} variants={options} />
           </InventoryActionPanel>
@@ -158,7 +158,7 @@ export default async function InventoryPage({
           <InventoryActionPanel
             id="adjustments"
             title="Adjustments"
-            description="In, out, damage, or lost — reason required. Always a ledger entry."
+            description="In, out, damage, or lost — reason required. Always saved in stock history."
           >
             <AdjustmentForm canWrite={canWrite} variants={options} />
           </InventoryActionPanel>

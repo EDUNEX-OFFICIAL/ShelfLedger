@@ -24,7 +24,7 @@ export const inventoryService = {
     const variant = await prisma.articleVariant.findFirst({
       where: { id: input.variantId, organizationId: user.organizationId, deletedAt: null },
     });
-    if (!variant) throw new NotFoundError('Variant not found');
+    if (!variant) throw new NotFoundError('Item not found');
 
     const refId = crypto.randomUUID();
     return prisma.$transaction(async (tx) => {
@@ -37,7 +37,7 @@ export const inventoryService = {
         movementType: 'OPENING',
         referenceType: 'OPENING',
         referenceId: refId,
-        notes: input.notes?.trim() || 'Opening stock',
+        notes: input.notes?.trim() || 'Starting stock',
         userId: user.id,
         affectsAverageCost: true,
       });
@@ -52,7 +52,7 @@ export const inventoryService = {
     const variant = await prisma.articleVariant.findFirst({
       where: { id: input.variantId, organizationId: user.organizationId, deletedAt: null },
     });
-    if (!variant) throw new NotFoundError('Variant not found');
+    if (!variant) throw new NotFoundError('Item not found');
 
     const map = {
       IN: { movementType: 'ADJUSTMENT_IN' as const, affectsAverageCost: true },

@@ -19,7 +19,7 @@ const TYPE_LABEL: Record<GlobalSearchHit['type'], string> = {
   sale: 'Invoices',
   customer: 'Customers',
   article: 'Articles',
-  variant: 'SKUs',
+  variant: 'Item codes',
   vendor: 'Vendors',
   brand: 'Brands',
 };
@@ -156,7 +156,7 @@ export function CommandPalette({
             ref={inputRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search invoices, customers, SKUs…"
+            placeholder="Search invoices, customers, item codes…"
             aria-label="Global search"
             autoComplete="off"
           />

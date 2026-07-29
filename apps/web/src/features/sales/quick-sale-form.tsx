@@ -167,7 +167,7 @@ export function QuickSaleForm({
     : !customerPhone.trim()
       ? 'Enter mobile number'
       : readyLines.length === 0
-        ? 'Add at least one SKU'
+        ? 'Add at least one item code'
         : null;
 
   const addLine = (focus = true) => {
@@ -454,7 +454,7 @@ export function QuickSaleForm({
           return;
         }
         if (readyLines.length === 0) {
-          setMessage('Add at least one SKU.');
+          setMessage('Add at least one item code.');
           return;
         }
         startTransition(async () => {
@@ -522,7 +522,7 @@ export function QuickSaleForm({
 
           <SurfaceCard padding="none" className="overflow-hidden">
             <div className="hidden grid-cols-[minmax(0,1fr)_8.5rem_6.5rem_5.5rem_2.75rem] items-center gap-2 border-b border-border/80 bg-muted/40 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground md:grid">
-              <span>SKU</span>
+              <span>Item code</span>
               <span>Qty</span>
               <span>Price</span>
               <span className="text-right">Line</span>
@@ -547,11 +547,11 @@ export function QuickSaleForm({
                     )}
                   >
                     <div className="min-w-0 space-y-1.5">
-                      <Label className="md:sr-only">SKU</Label>
+                      <Label className="md:sr-only">Item code</Label>
                       <Select
                         value={line.variantId}
                         onValueChange={(id) => setLineVariant(index, id)}
-                        placeholder="Search SKU…"
+                        placeholder="Search item code…"
                         required={index === 0 || Boolean(line.variantId)}
                         searchable
                         options={selectOptions}

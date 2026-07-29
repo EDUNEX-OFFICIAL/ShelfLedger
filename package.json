@@ -18,6 +18,7 @@
     "db:migrate": "pnpm --filter @shelfledger/db migrate:dev",
     "db:migrate:deploy": "pnpm --filter @shelfledger/db migrate:deploy",
     "db:seed": "pnpm --filter @shelfledger/db seed",
+    "db:simulate": "pnpm --filter @shelfledger/db simulate",
     "db:studio": "pnpm --filter @shelfledger/db studio",
     "db:push": "pnpm --filter @shelfledger/db push"
   },

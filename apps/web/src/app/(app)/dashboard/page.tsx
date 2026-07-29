@@ -167,7 +167,7 @@ export default async function DashboardPage({
     { title: 'Brands', value: counts.brands, href: '/brands', icon: Tag },
     { title: 'Categories', value: counts.categories, href: '/categories', icon: FolderTree },
     { title: 'Articles', value: counts.articles, href: '/articles', icon: Layers },
-    { title: 'Variants', value: counts.variants, href: '/articles', icon: Box },
+    { title: 'Size & colour', value: counts.variants, href: '/articles', icon: Box },
     { title: 'Vendors', value: counts.vendors, href: '/vendors', icon: Truck },
   ];
 

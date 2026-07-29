@@ -276,7 +276,7 @@ export function ExchangeForm({
                 >
                   <FormField
                     id={`ex-rep-var-${index}`}
-                    label="Variant"
+                    label="Size & colour"
                     required
                     className="lg:col-span-2"
                   >
@@ -297,7 +297,7 @@ export function ExchangeForm({
                           ),
                         );
                       }}
-                      placeholder="Select SKU"
+                      placeholder="Select item code"
                       required
                       searchable
                       options={variants.map((v) => ({ value: v.id, label: v.label }))}

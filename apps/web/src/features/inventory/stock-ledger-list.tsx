@@ -29,7 +29,7 @@ export type LedgerRow = {
 const TYPE_FAMILIES = [
   { value: 'sale', label: 'Sale' },
   { value: 'purchase', label: 'Purchase' },
-  { value: 'opening', label: 'Opening' },
+  { value: 'opening', label: 'Starting' },
   { value: 'adjust', label: 'Adjust / loss' },
   { value: 'exchange', label: 'Exchange' },
   { value: 'transfer', label: 'Transfer' },
@@ -83,7 +83,7 @@ export function StockLedgerList({
     <FilteredDataList
       rows={rows}
       initialSearch={initialSku}
-      searchPlaceholder="Search SKU, article, type, notes…"
+      searchPlaceholder="Search item code, article, type, notes…"
       searchFn={(r, q) =>
         r.sku.toLowerCase().includes(q) ||
         r.articleName.toLowerCase().includes(q) ||
@@ -126,8 +126,8 @@ export function StockLedgerList({
           },
         },
       ]}
-      emptyTitle="No ledger entries yet"
-      emptyDescription="Post a purchase, sale, opening, or adjustment — every qty change writes a row here."
+      emptyTitle="No stock history yet"
+      emptyDescription="Post a purchase, sale, starting stock, or adjustment — every qty change writes a row here."
       emptyAction={
         <div className="flex flex-wrap justify-center gap-2">
           <Link href="/inventory" className={buttonClassName({ size: 'md' })}>
@@ -137,7 +137,7 @@ export function StockLedgerList({
             href="/inventory#opening-stock"
             className={buttonClassName({ variant: 'secondary', size: 'md' })}
           >
-            Opening stock
+            Starting stock
           </Link>
         </div>
       }
@@ -173,7 +173,7 @@ export function StockLedgerList({
         },
         {
           id: 'sku',
-          header: 'SKU',
+          header: 'Item code',
           mobile: false,
           cell: (r) => (
             <div>

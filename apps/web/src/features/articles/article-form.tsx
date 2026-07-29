@@ -114,7 +114,7 @@ export function ArticleForm({
             setError(result.error);
             return;
           }
-          setMessage('Article created — post opening stock or a purchase to put qty on the shelf.');
+          setMessage('Article created — post starting stock or a purchase to put qty on the shelf.');
           setName('');
           setArticleCode('');
           setBrandId('');
@@ -159,7 +159,7 @@ export function ArticleForm({
               id="article-code"
               label="Article code"
               required
-              hint="Used to suggest SKUs"
+              hint="Used to suggest item codes"
             >
               <Input
                 id="article-code"
@@ -253,10 +253,10 @@ export function ArticleForm({
             <div className="flex items-center justify-between gap-2">
               <div>
                 <h3 className="text-sm font-semibold tracking-tight text-foreground">
-                  Variants (size × color)
+                  Size & colour
                 </h3>
                 <p className="text-xs text-muted-foreground">
-                  Each row is a sellable SKU. Qty is posted later via opening stock / purchase.
+                  Each row is a sellable item code. Qty is posted later via starting stock / purchase.
                 </p>
               </div>
               <Button
@@ -265,7 +265,7 @@ export function ArticleForm({
                 size="sm"
                 onClick={() => setVariants((v) => [...v, emptyVariant()])}
               >
-                Add variant
+                Add size & colour
               </Button>
             </div>
             {variants.map((variant, index) => (
@@ -291,7 +291,7 @@ export function ArticleForm({
                     placeholder="Black"
                   />
                 </FormField>
-                <FormField id={`article-sku-${index}`} label="SKU" required>
+                <FormField id={`article-sku-${index}`} label="Item code" required>
                   <Input
                     id={`article-sku-${index}`}
                     value={variant.sku}
@@ -386,7 +386,7 @@ export function ArticleForm({
             <p className="text-sm font-medium text-success" role="status">
               {message}{' '}
               <Link href="/inventory#opening-stock" className="underline underline-offset-2">
-                Opening stock
+                Starting stock
               </Link>
             </p>
           ) : null}

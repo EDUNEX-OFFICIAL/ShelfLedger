@@ -47,7 +47,7 @@ export const purchaseService = {
         },
         include: { article: true },
       });
-      if (!variant) throw new ValidationError(`Variant not found: ${line.variantId}`);
+      if (!variant) throw new ValidationError('Item not found');
 
       const discount = line.discountAmount ?? 0;
       const taxable = roundMoney(line.qty * line.unitRate - discount);

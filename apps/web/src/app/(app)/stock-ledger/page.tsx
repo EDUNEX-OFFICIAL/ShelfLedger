@@ -8,7 +8,7 @@ import { buttonClassName } from '@/components/ui/button';
 import { StockLedgerList } from '@/features/inventory/stock-ledger-list';
 
 const MOVEMENT_LABELS: Record<string, string> = {
-  OPENING: 'Opening',
+  OPENING: 'Starting',
   PURCHASE: 'Purchase',
   PURCHASE_RETURN: 'Purchase return',
   SALE: 'Sale',
@@ -49,7 +49,7 @@ function refFor(
     case 'EXCHANGE':
       return { label: `Exchange · ${short}`, href: '/exchanges' };
     case 'OPENING':
-      return { label: 'Opening stock', href: '/inventory#opening-stock' };
+      return { label: 'Starting stock', href: '/inventory#opening-stock' };
     case 'ADJUSTMENT':
       return { label: 'Adjustment', href: '/inventory#adjustments' };
     case 'TRANSFER':
@@ -77,8 +77,8 @@ export default async function StockLedgerPage({
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Stock ledger"
-        description="Immutable movement history — every qty change is a row. Corrections are reverse entries, never deletes."
+        title="Stock history"
+        description="Every stock in/out is saved here. Fixes are new entries — old rows are never deleted."
         actions={
           <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:justify-end">
             <Link href="/inventory" className={buttonClassName({ size: 'lg' })}>
@@ -108,7 +108,7 @@ export default async function StockLedgerPage({
           {initialSku ? (
             <>
               {' · '}
-              filtered to SKU{' '}
+              filtered to item code{' '}
               <span className="font-mono font-medium text-foreground">{initialSku}</span>
             </>
           ) : null}

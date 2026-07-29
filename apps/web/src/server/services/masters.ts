@@ -175,7 +175,7 @@ export const masterService = {
   async createArticle(user: SessionUser, input: ArticleCreateInput) {
     const skus = input.variants.map((v) => v.sku.trim().toLowerCase());
     if (new Set(skus).size !== skus.length) {
-      throw new ValidationError('Duplicate SKUs in variants');
+      throw new ValidationError('Duplicate item codes in size & colour');
     }
     try {
       return await articleRepository.create({
@@ -207,7 +207,7 @@ export const masterService = {
         },
       });
     } catch (error) {
-      throw mapUnique(error, 'Article code, SKU, or barcode already exists');
+      throw mapUnique(error, 'Article code, item code, or barcode already exists');
     }
   },
 

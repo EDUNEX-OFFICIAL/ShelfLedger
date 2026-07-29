@@ -96,7 +96,7 @@ export function PurchaseForm({
               <p>
                 {vendors.length === 0
                   ? 'Add a vendor before creating a purchase.'
-                  : 'Add article variants (SKUs) before creating a purchase.'}
+                  : 'Add size & colour (item codes) before creating a purchase.'}
               </p>
               <div className="flex flex-wrap gap-2">
                 {vendors.length === 0 ? (
@@ -162,7 +162,7 @@ export function PurchaseForm({
               >
                 <FormField
                   id={`po-var-${index}`}
-                  label="Variant"
+                  label="Size & colour"
                   required
                   className="lg:col-span-2"
                 >
@@ -174,7 +174,7 @@ export function PurchaseForm({
                         rows.map((r, i) => (i === index ? { ...r, variantId } : r)),
                       )
                     }
-                    placeholder="Select SKU"
+                    placeholder="Select item code"
                     required
                     searchable
                     options={variants.map((v) => ({ value: v.id, label: v.label }))}

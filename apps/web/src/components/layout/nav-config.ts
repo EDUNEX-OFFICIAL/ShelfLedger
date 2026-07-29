@@ -44,7 +44,7 @@ export const navGroups: NavGroup[] = [
       { href: '/customers', label: 'Customers', icon: Users },
       { href: '/purchases', label: 'Purchases', icon: PackagePlus },
       { href: '/inventory', label: 'Inventory', icon: Package },
-      { href: '/stock-ledger', label: 'Stock Ledger', icon: ScrollText },
+      { href: '/stock-ledger', label: 'Stock history', icon: ScrollText },
       { href: '/expenses', label: 'Expenses', icon: Wallet },
     ],
   },

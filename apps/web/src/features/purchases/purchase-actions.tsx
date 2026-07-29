@@ -21,7 +21,7 @@ export function PostPurchaseButton({ purchaseId }: { purchaseId: string }) {
       <ConfirmDialog
         open={open}
         title="Post this purchase?"
-        description="Stock and average cost will update via the stock ledger."
+        description="Stock and average cost will update in stock history."
         confirmLabel="Post purchase"
         pending={pending}
         onCancel={() => setOpen(false)}

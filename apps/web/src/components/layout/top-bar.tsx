@@ -52,7 +52,7 @@ export function TopBar({
         className="flex h-9 min-w-0 flex-1 items-center gap-2.5 rounded-lg border border-border/80 bg-muted/60 px-3 text-left text-sm text-muted-foreground shadow-sm transition hover:border-border hover:bg-muted md:max-w-xl"
       >
         <Search className="h-3.5 w-3.5 shrink-0 opacity-60" aria-hidden />
-        <span className="truncate">Search invoices, customers, SKUs…</span>
+        <span className="truncate">Search invoices, customers, item codes…</span>
         <kbd className="ml-auto hidden rounded-md border border-border bg-card px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground md:inline">
           Ctrl+K
         </kbd>

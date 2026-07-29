@@ -94,7 +94,7 @@ export const saleService = {
         },
         include: { article: true },
       });
-      if (!variant) throw new ValidationError(`Variant not found: ${line.variantId}`);
+      if (!variant) throw new ValidationError('Item not found');
 
       const lineDiscount = line.discountAmount ?? 0;
       const gross = roundMoney(line.qty * line.unitPrice - lineDiscount);

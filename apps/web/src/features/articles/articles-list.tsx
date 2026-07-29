@@ -32,7 +32,7 @@ export function ArticlesList({
   return (
     <FilteredDataList
       rows={rows}
-      searchPlaceholder="Search name, code, SKU, size…"
+      searchPlaceholder="Search name, code, item code, size…"
       searchFn={(r, q) =>
         r.name.toLowerCase().includes(q) ||
         r.articleCode.toLowerCase().includes(q) ||
@@ -64,7 +64,7 @@ export function ArticlesList({
           : []),
       ]}
       emptyTitle="No articles yet"
-      emptyDescription="Create a brand and category, then add styles with size × color SKUs."
+      emptyDescription="Create a brand and category, then add styles with size & colour item codes."
       emptyAction={
         canWrite ? (
           <div className="flex flex-wrap justify-center gap-2">
@@ -90,7 +90,7 @@ export function ArticlesList({
       mobileTrailing={(r) => (
         <span className="font-mono text-sm font-semibold tabular-nums text-foreground">
           {r.variantCount}
-          <span className="ml-0.5 text-[10px] font-medium text-muted-foreground">SKU</span>
+          <span className="ml-0.5 text-[10px] font-medium text-muted-foreground">item codes</span>
         </span>
       )}
       columns={[
@@ -119,7 +119,7 @@ export function ArticlesList({
         },
         {
           id: 'variants',
-          header: 'Variants',
+          header: 'Size & colour',
           mobile: false,
           cell: (r) => (
             <span className="font-mono text-xs">

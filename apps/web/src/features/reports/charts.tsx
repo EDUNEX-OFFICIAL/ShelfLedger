@@ -380,7 +380,7 @@ export function TopStockValueChart({
 }) {
   const top = data.slice(0, 8);
   return (
-    <ChartCard title="Top stock value" description="Avg cost × qty by SKU">
+    <ChartCard title="Top stock value" description="Avg cost × qty by item code">
       {top.length === 0 ? (
         <p className="flex h-[220px] items-center justify-center text-sm text-muted-foreground">
           No positive stock balances.

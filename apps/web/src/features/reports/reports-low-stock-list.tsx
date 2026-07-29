@@ -19,7 +19,7 @@ export function ReportsLowStockList({ rows }: { rows: ReportLowStockRow[] }) {
   return (
     <FilteredDataList
       rows={rows}
-      searchPlaceholder="Search SKU or article…"
+      searchPlaceholder="Search item code or article…"
       searchFn={(r, q) =>
         r.sku.toLowerCase().includes(q) ||
         r.articleName.toLowerCase().includes(q) ||
@@ -43,7 +43,7 @@ export function ReportsLowStockList({ rows }: { rows: ReportLowStockRow[] }) {
       columns={[
         {
           id: 'sku',
-          header: 'SKU',
+          header: 'Item code',
           mobile: false,
           cell: (r) => <SkuText value={r.sku} />,
         },
@@ -97,7 +97,7 @@ export function ReportsLowStockList({ rows }: { rows: ReportLowStockRow[] }) {
             href={`/stock-ledger?sku=${encodeURIComponent(r.sku)}`}
             className={buttonClassName({ variant: 'secondary', size: 'sm' })}
           >
-            Ledger
+            History
           </Link>
         </div>
       )}

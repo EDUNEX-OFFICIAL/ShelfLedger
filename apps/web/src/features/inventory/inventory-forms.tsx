@@ -60,7 +60,7 @@ export function OpeningStockForm({
             setMessage({ tone: 'err', text: result.error });
             return;
           }
-          setMessage({ tone: 'ok', text: 'Opening stock posted to the ledger' });
+          setMessage({ tone: 'ok', text: 'Starting stock saved to stock history' });
           setVariantId('');
           setQty('1');
           setUnitCost('');
@@ -73,19 +73,19 @@ export function OpeningStockForm({
         <div className="space-y-5 p-5">
           {blocked ? (
             <div className="space-y-2 rounded-lg border border-dashed border-border/80 bg-muted/30 px-3 py-2.5 text-sm text-muted-foreground">
-              <p>Create article variants (SKUs) before posting opening stock.</p>
+              <p>Create size & colour (item codes) before posting starting stock.</p>
               <Link href="/articles" className="font-semibold text-primary hover:underline">
                 Go to Articles
               </Link>
             </div>
           ) : null}
           <div className="grid gap-4 lg:grid-cols-5">
-            <FormField id="open-var" label="Variant" required className="lg:col-span-2">
+            <FormField id="open-var" label="Size & colour" required className="lg:col-span-2">
               <Select
                 id="open-var"
                 value={variantId}
                 onValueChange={setVariantId}
-                placeholder="Select SKU"
+                placeholder="Select item code"
                 required
                 searchable
                 options={variants.map((v) => ({ value: v.id, label: v.label }))}
@@ -143,7 +143,7 @@ export function OpeningStockForm({
           disabled={pending || blocked}
           className="h-12 w-full text-base md:h-11 md:w-auto"
         >
-          {pending ? 'Posting…' : 'Post opening'}
+          {pending ? 'Saving…' : 'Save starting stock'}
         </Button>
       </StickyFormActions>
     </form>
@@ -186,7 +186,7 @@ export function AdjustmentForm({
             setMessage({ tone: 'err', text: result.error });
             return;
           }
-          setMessage({ tone: 'ok', text: 'Adjustment posted to the ledger' });
+          setMessage({ tone: 'ok', text: 'Adjustment saved to stock history' });
           setReason('');
           router.refresh();
         });
@@ -196,19 +196,19 @@ export function AdjustmentForm({
         <div className="space-y-5 p-5">
           {blocked ? (
             <div className="space-y-2 rounded-lg border border-dashed border-border/80 bg-muted/30 px-3 py-2.5 text-sm text-muted-foreground">
-              <p>Create article variants (SKUs) before posting adjustments.</p>
+              <p>Create size & colour (item codes) before posting adjustments.</p>
               <Link href="/articles" className="font-semibold text-primary hover:underline">
                 Go to Articles
               </Link>
             </div>
           ) : null}
           <div className="grid gap-4 lg:grid-cols-5">
-            <FormField id="adj-var" label="Variant" required className="lg:col-span-2">
+            <FormField id="adj-var" label="Size & colour" required className="lg:col-span-2">
               <Select
                 id="adj-var"
                 value={variantId}
                 onValueChange={setVariantId}
-                placeholder="Select SKU"
+                placeholder="Select item code"
                 required
                 searchable
                 options={variants.map((v) => ({ value: v.id, label: v.label }))}
