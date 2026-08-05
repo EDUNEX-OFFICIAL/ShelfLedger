@@ -104,19 +104,27 @@ export async function createAndPostSaleAction(
 
 export async function createAndPostQuickSaleAction(
   input: unknown,
-): Promise<ActionResult<{ id: string; invoiceNo: string }>> {
+): Promise<
+  ActionResult<{
+    id: string;
+    invoiceNo: string;
+    totalAmount: number;
+    customerPhone: string | null;
+  }>
+> {
   try {
     const user = await requireSell();
     const data = quickSaleSchema.parse(input);
     const customer = await customerService.findOrCreateForQuickSale(user, {
       name: data.customerName,
       phone: data.customerPhone,
+      useWalkIn: data.useWalkIn,
     });
     const sale = await saleService.createAndPost(user, {
       customerId: customer.id,
       invoiceDate: '',
       notes: '',
-      billDiscount: 0,
+      billDiscount: data.billDiscount,
       stockOverride: false,
       overrideReason: '',
       lines: data.lines,
@@ -130,7 +138,12 @@ export async function createAndPostQuickSaleAction(
     revalidatePath('/stock-ledger');
     revalidatePath('/dashboard');
     revalidatePath('/exchanges');
-    return ok({ id: sale.id, invoiceNo: sale.invoiceNo });
+    return ok({
+      id: sale.id,
+      invoiceNo: sale.invoiceNo,
+      totalAmount: Number(sale.totalAmount),
+      customerPhone: customer.isWalkIn ? null : customer.phone,
+    });
   } catch (error) {
     return fail(error);
   }

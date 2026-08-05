@@ -106,6 +106,12 @@ export const purchaseService = {
     });
   },
 
+  /** Counter receive: create draft then post (same invariants as draft → post). */
+  async createAndPost(user: SessionUser, input: PurchaseCreateInput) {
+    const draft = await this.createDraft(user, input);
+    return this.post(user, draft.id);
+  },
+
   async post(user: SessionUser, purchaseId: string) {
     return prisma.$transaction(async (tx) => {
       const purchase = await tx.purchase.findFirst({

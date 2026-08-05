@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
   Banknote,
   Check,
@@ -9,12 +9,20 @@ import {
   Loader2,
   Minus,
   Plus,
+  Printer,
   Smartphone,
   Trash2,
 } from 'lucide-react';
-import { computeLineTax, computeRoundOff, roundMoney } from '@shelfledger/domain';
+import {
+  buildWhatsAppShareUrl,
+  computeLineTax,
+  computeRoundOff,
+  distributeBillDiscount,
+  normalizeWhatsAppPhone,
+  roundMoney,
+} from '@shelfledger/domain';
 import { normalizeCustomerPhone } from '@shelfledger/validators';
-import { Button } from '@/components/ui/button';
+import { Button, buttonClassName } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -25,10 +33,18 @@ import {
   StickyFormActions,
   stickyFormPadTallClass,
 } from '@/components/shared/sticky-form-actions';
+import { WhatsAppIcon } from '@/components/icons/whatsapp-icon';
 import {
   createAndPostQuickSaleAction,
   lookupCustomerByPhoneAction,
 } from '@/features/sales/actions';
+import {
+  OPS_KEYS,
+  pushRecentSkuIds,
+  readLocal,
+  readRecentSkuIds,
+  writeLocal,
+} from '@/lib/ops-prefs';
 import { cn } from '@/lib/utils';
 
 type VariantOption = {
@@ -47,6 +63,13 @@ type Line = {
   variantId: string;
   qty: string;
   unitPrice: string;
+};
+
+type PostedSale = {
+  id: string;
+  invoiceNo: string;
+  totalAmount: number;
+  customerPhone: string | null;
 };
 
 const PAY_OPTIONS = [
@@ -93,20 +116,42 @@ function lineEstimate(
 function estimateTotal(
   lines: Line[],
   variants: VariantOption[],
-): { subtotal: number; tax: number; roundOff: number; total: number } {
+  billDiscount = 0,
+): { subtotal: number; tax: number; roundOff: number; total: number; discount: number } {
+  const ready = lines.filter(
+    (l) => l.variantId && Number(l.qty) > 0 && Number(l.unitPrice) >= 0,
+  );
+  const grosses: number[] = [];
+  const metas: Array<{ cgstRate: number; sgstRate: number }> = [];
+  for (const line of ready) {
+    const v = variants.find((x) => x.id === line.variantId);
+    if (!v) continue;
+    const qty = Number(line.qty) || 0;
+    const unitPrice = Number(line.unitPrice) || 0;
+    grosses.push(roundMoney(qty * unitPrice));
+    metas.push({ cgstRate: v.cgstRate, sgstRate: v.sgstRate });
+  }
+  const shares = distributeBillDiscount(grosses, billDiscount);
   let subtotal = 0;
   let tax = 0;
-  for (const line of lines) {
-    const est = lineEstimate(line, variants);
-    if (!est) continue;
-    subtotal = roundMoney(subtotal + est.taxable);
-    tax = roundMoney(tax + est.tax);
+  for (let i = 0; i < grosses.length; i++) {
+    const taxable = roundMoney((grosses[i] ?? 0) - (shares[i] ?? 0));
+    if (taxable < 0) continue;
+    const meta = metas[i]!;
+    const lineTax = computeLineTax({
+      taxableAmount: taxable,
+      cgstRate: meta.cgstRate,
+      sgstRate: meta.sgstRate,
+    });
+    subtotal = roundMoney(subtotal + taxable);
+    tax = roundMoney(tax + lineTax.taxAmount);
   }
   const beforeRound = roundMoney(subtotal + tax);
   const roundOff = computeRoundOff(beforeRound);
   return {
     subtotal,
     tax,
+    discount: billDiscount,
     roundOff,
     total: roundMoney(beforeRound + roundOff),
   };
@@ -130,22 +175,53 @@ function HotkeyBadge({ children }: { children: string }) {
 export function QuickSaleForm({
   canWrite,
   variants,
+  frequentVariantIds = [],
 }: {
   canWrite: boolean;
   variants: VariantOption[];
+  /** Top SKUs sold recently (server); merged with local recent punches. */
+  frequentVariantIds?: string[];
 }) {
-  const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const skuTriggerRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const [useWalkIn, setUseWalkIn] = useState(false);
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerMatch, setCustomerMatch] = useState<string | null>(null);
   const [payMethod, setPayMethod] = useState<'CASH' | 'UPI' | 'CARD'>('CASH');
+  const [billDiscount, setBillDiscount] = useState('0');
+  const [showAdjust, setShowAdjust] = useState(false);
   const [lines, setLines] = useState<Line[]>([emptyLine()]);
   const [focusSkuIndex, setFocusSkuIndex] = useState(0);
   const [message, setMessage] = useState<string | null>(null);
   const [punchSuccess, setPunchSuccess] = useState(false);
+  const [posted, setPosted] = useState<PostedSale | null>(null);
+  const [localRecentIds, setLocalRecentIds] = useState<string[]>([]);
   const [pending, startTransition] = useTransition();
+
+  useEffect(() => {
+    const saved = readLocal(OPS_KEYS.lastPayMethod);
+    if (saved === 'CASH' || saved === 'UPI' || saved === 'CARD') {
+      setPayMethod(saved);
+    }
+    setLocalRecentIds(readRecentSkuIds(8));
+  }, []);
+
+  const choosePay = (method: 'CASH' | 'UPI' | 'CARD') => {
+    setPayMethod(method);
+    writeLocal(OPS_KEYS.lastPayMethod, method);
+  };
+
+  const quickPickIds = useMemo(() => {
+    const merged: string[] = [];
+    for (const id of [...localRecentIds, ...frequentVariantIds]) {
+      if (!id || merged.includes(id)) continue;
+      if (!variants.some((v) => v.id === id)) continue;
+      merged.push(id);
+      if (merged.length >= 8) break;
+    }
+    return merged;
+  }, [localRecentIds, frequentVariantIds, variants]);
 
   const selectOptions = useMemo(
     () =>
@@ -157,18 +233,39 @@ export function QuickSaleForm({
     [variants],
   );
 
-  const totals = useMemo(() => estimateTotal(lines, variants), [lines, variants]);
+  const totals = useMemo(
+    () => estimateTotal(lines, variants, Number(billDiscount) || 0),
+    [lines, variants, billDiscount],
+  );
   const readyLines = lines.filter(
     (l) => l.variantId && Number(l.qty) > 0 && Number(l.unitPrice) >= 0,
   );
 
-  const blockReason = !customerName.trim()
+  const blockReason = !useWalkIn && !customerName.trim()
     ? 'Enter customer name'
-    : !customerPhone.trim()
+    : !useWalkIn && !customerPhone.trim()
       ? 'Enter mobile number'
       : readyLines.length === 0
         ? 'Add at least one item code'
         : null;
+
+  const resetFormForNext = () => {
+    setCustomerName('');
+    setCustomerPhone('');
+    setCustomerMatch(null);
+    setUseWalkIn(false);
+    setBillDiscount('0');
+    setShowAdjust(false);
+    setLines([emptyLine()]);
+    setFocusSkuIndex(0);
+    setPunchSuccess(false);
+    setMessage(null);
+  };
+
+  const dismissPosted = () => {
+    setPosted(null);
+    resetFormForNext();
+  };
 
   const addLine = (focus = true) => {
     setLines((rows) => {
@@ -178,26 +275,63 @@ export function QuickSaleForm({
     });
   };
 
-  const setLineVariant = (index: number, id: string) => {
-    const v = variants.find((x) => x.id === id);
-    let nextFocus: number | null = null;
+  /** Scan / pick: bump qty if SKU already on another line; else fill/replace at index. */
+  const setLineVariant = (index: number, variantId: string) => {
+    if (!variantId) {
+      setLines((rows) =>
+        rows.map((r, i) =>
+          i === index ? { ...r, variantId: '', unitPrice: '' } : r,
+        ),
+      );
+      return;
+    }
+    const v = variants.find((x) => x.id === variantId);
+    if (!v) return;
+
+    let nextFocus = index;
     setLines((rows) => {
+      const current = rows[index];
+      const otherIdx = rows.findIndex((r, i) => r.variantId === variantId && i !== index);
+
+      // Duplicate from empty row or re-scan same SKU → bump the existing line
+      if (otherIdx >= 0 && (!current?.variantId || current.variantId === variantId)) {
+        const mapped = rows.map((r, i) => {
+          if (i === otherIdx) {
+            return { ...r, qty: String((Number(r.qty) || 0) + 1) };
+          }
+          if (i === index && !current?.variantId) {
+            return r; // leave empty picker row
+          }
+          return r;
+        });
+        const last = mapped[mapped.length - 1];
+        if (last?.variantId) {
+          nextFocus = mapped.length;
+          return [...mapped, emptyLine()];
+        }
+        nextFocus = mapped.findIndex((r) => !r.variantId);
+        if (nextFocus < 0) nextFocus = mapped.length - 1;
+        return mapped;
+      }
+
       const mapped = rows.map((r, i) =>
         i === index
           ? {
               ...r,
-              variantId: id,
-              unitPrice: v ? String(v.sellingPrice) : r.unitPrice,
+              variantId,
+              unitPrice: String(v.sellingPrice),
+              qty: r.qty && Number(r.qty) > 0 ? r.qty : '1',
             }
           : r,
       );
-      if (id && index === rows.length - 1) {
+      if (index === mapped.length - 1) {
         nextFocus = mapped.length;
         return [...mapped, emptyLine()];
       }
+      nextFocus = index + 1;
       return mapped;
     });
-    if (nextFocus != null) setFocusSkuIndex(nextFocus);
+    setFocusSkuIndex(nextFocus);
   };
 
   useEffect(() => {
@@ -208,6 +342,10 @@ export function QuickSaleForm({
   }, [focusSkuIndex, lines.length]);
 
   useEffect(() => {
+    if (useWalkIn) {
+      setCustomerMatch(null);
+      return;
+    }
     const normalized = normalizeCustomerPhone(customerPhone);
     if (normalized.length < 10) {
       setCustomerMatch(null);
@@ -228,28 +366,31 @@ export function QuickSaleForm({
       cancelled = true;
       window.clearTimeout(t);
     };
-  }, [customerPhone]);
+  }, [customerPhone, useWalkIn]);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'F2') {
         e.preventDefault();
-        if (!pending && !punchSuccess && !blockReason) formRef.current?.requestSubmit();
+        if (!pending && !punchSuccess && !blockReason && !posted) {
+          formRef.current?.requestSubmit();
+        }
         return;
       }
       if (isTypingTarget(e.target)) return;
+      if (posted) return;
       if (e.key === '+' || (e.key === '=' && e.shiftKey)) {
         e.preventDefault();
         addLine(true);
         return;
       }
-      if (e.key === '1') setPayMethod('CASH');
-      if (e.key === '2') setPayMethod('UPI');
-      if (e.key === '3') setPayMethod('CARD');
+      if (e.key === '1') choosePay('CASH');
+      if (e.key === '2') choosePay('UPI');
+      if (e.key === '3') choosePay('CARD');
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [pending, punchSuccess, blockReason]);
+  }, [pending, punchSuccess, blockReason, posted]);
 
   if (!canWrite) {
     return (
@@ -278,7 +419,7 @@ export function QuickSaleForm({
                   ? 'border-primary bg-primary text-primary-foreground shadow-sm'
                   : 'border-border/80 bg-card text-muted-foreground hover:bg-muted',
               )}
-              onClick={() => setPayMethod(opt.value)}
+              onClick={() => choosePay(opt.value)}
             >
               <Icon className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
               <span className="leading-none">{opt.label}</span>
@@ -322,6 +463,31 @@ export function QuickSaleForm({
           className="text-2xl font-semibold tracking-tight text-foreground"
         />
       </div>
+      <div className="pt-1">
+        <button
+          type="button"
+          className="text-xs font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+          onClick={() => setShowAdjust((v) => !v)}
+          aria-expanded={showAdjust}
+        >
+          {showAdjust ? 'Hide adjust' : 'Adjust'}
+        </button>
+        {showAdjust ? (
+          <div className="mt-2 space-y-1">
+            <Label htmlFor="qs-bill-disc">Bill discount (₹)</Label>
+            <Input
+              id="qs-bill-disc"
+              type="number"
+              min="0"
+              step="0.01"
+              inputMode="decimal"
+              className="h-11"
+              value={billDiscount}
+              onChange={(e) => setBillDiscount(e.target.value)}
+            />
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 
@@ -340,7 +506,7 @@ export function QuickSaleForm({
       <Button
         type="submit"
         size="lg"
-        disabled={pending || punchSuccess || Boolean(blockReason)}
+        disabled={pending || punchSuccess || Boolean(blockReason) || Boolean(posted)}
         className={cn(
           'h-[3.25rem] w-full text-base font-semibold shadow-sm',
           punchSuccess && 'bg-success text-success-foreground hover:bg-success',
@@ -366,9 +532,9 @@ export function QuickSaleForm({
           </span>
         )}
       </Button>
-      {blockReason && !pending && !punchSuccess ? (
+      {blockReason && !pending && !punchSuccess && !posted ? (
         <p className="text-center text-xs text-muted-foreground">{blockReason}</p>
-      ) : !punchSuccess ? (
+      ) : !punchSuccess && !posted ? (
         <p className="hidden text-center text-[11px] text-muted-foreground md:block">
           <span className="inline-flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
             <span className="inline-flex items-center gap-1">
@@ -392,51 +558,148 @@ export function QuickSaleForm({
 
   const customerFields = (
     <div className="space-y-3">
-      <div>
-        <h3 className="text-sm font-semibold tracking-tight text-foreground">Customer</h3>
-        <p className="mt-0.5 text-xs text-muted-foreground">Saved for offers &amp; WhatsApp</p>
-      </div>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
-        <div className="space-y-1">
-          <Label htmlFor="qs-phone">Mobile</Label>
-          <Input
-            id="qs-phone"
-            type="tel"
-            inputMode="tel"
-            className="h-11"
-            autoComplete="tel"
-            placeholder="10-digit mobile"
-            value={customerPhone}
-            onChange={(e) => setCustomerPhone(e.target.value)}
-            required
-          />
-          {customerMatch ? (
-            <div
-              className="flex items-start gap-1.5 rounded-md bg-success/10 px-2 py-1.5 text-xs text-success ring-1 ring-inset ring-success/25"
-              role="status"
-            >
-              <Check className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2.25} aria-hidden />
-              <span>
-                Matched <span className="font-semibold">{customerMatch}</span>
-              </span>
-            </div>
-          ) : null}
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <h3 className="text-sm font-semibold tracking-tight text-foreground">
+            Who&apos;s buying?
+          </h3>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {useWalkIn
+              ? 'System walk-in — no phone captured'
+              : customerName.trim() || customerPhone.trim()
+                ? [customerName.trim(), customerPhone.trim()].filter(Boolean).join(' · ')
+                : 'Saved for offers & WhatsApp'}
+          </p>
         </div>
-        <div className="space-y-1">
-          <Label htmlFor="qs-name">Name</Label>
-          <Input
-            id="qs-name"
-            className="h-11"
-            autoComplete="name"
-            placeholder="Customer name"
-            value={customerName}
-            onChange={(e) => setCustomerName(e.target.value)}
-            required
-          />
-        </div>
+        <button
+          type="button"
+          aria-pressed={useWalkIn}
+          onClick={() => {
+            setUseWalkIn((v) => !v);
+            setMessage(null);
+          }}
+          className={cn(
+            'shrink-0 rounded-lg border px-3 py-1.5 text-xs font-semibold transition',
+            useWalkIn
+              ? 'border-primary bg-primary text-primary-foreground'
+              : 'border-border/80 bg-card text-muted-foreground hover:bg-muted',
+          )}
+        >
+          Walk-in
+        </button>
       </div>
+      {useWalkIn ? (
+        <p className="rounded-md bg-muted/40 px-2.5 py-2 text-xs text-muted-foreground ring-1 ring-inset ring-border/70">
+          Punching as the shop walk-in customer. Turn off Walk-in to capture name &amp; mobile.
+        </p>
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+          <div className="space-y-1">
+            <Label htmlFor="qs-phone">Mobile</Label>
+            <Input
+              id="qs-phone"
+              type="tel"
+              inputMode="tel"
+              className="h-11"
+              autoComplete="tel"
+              placeholder="10-digit mobile"
+              value={customerPhone}
+              onChange={(e) => setCustomerPhone(e.target.value)}
+              required={!useWalkIn}
+            />
+            {customerMatch ? (
+              <div
+                className="flex items-start gap-1.5 rounded-md bg-success/10 px-2 py-1.5 text-xs text-success ring-1 ring-inset ring-success/25"
+                role="status"
+              >
+                <Check className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2.25} aria-hidden />
+                <span>
+                  Matched <span className="font-semibold">{customerMatch}</span>
+                </span>
+              </div>
+            ) : null}
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="qs-name">Name</Label>
+            <Input
+              id="qs-name"
+              className="h-11"
+              autoComplete="name"
+              placeholder="Customer name"
+              value={customerName}
+              onChange={(e) => setCustomerName(e.target.value)}
+              required={!useWalkIn}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
+
+  const successStrip = posted ? (
+    <SurfaceCard padding="md" className="border-success/30 bg-success/5">
+      <div role="status" aria-live="polite" className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-success">Sale posted</p>
+          <p className="mt-0.5 font-mono text-sm text-foreground">{posted.invoiceNo}</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Total <MoneyText value={posted.totalAmount} className="font-semibold text-foreground" />
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href={`/sales/${posted.id}/invoice`}
+            className={buttonClassName({ variant: 'secondary', size: 'sm' })}
+          >
+            Invoice
+          </Link>
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            onClick={() => {
+              window.open(
+                `/sales/${posted.id}/invoice?print=1`,
+                '_blank',
+                'noopener,noreferrer',
+              );
+            }}
+          >
+            <Printer className="h-3.5 w-3.5" aria-hidden />
+            Print
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            onClick={() => {
+              const phone = normalizeWhatsAppPhone(posted.customerPhone);
+              const msg = [
+                `*Invoice ${posted.invoiceNo}*`,
+                `Total: ₹${posted.totalAmount.toLocaleString('en-IN', {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}`,
+                '',
+                'Thank you for shopping with us.',
+              ].join('\n');
+              window.open(
+                buildWhatsAppShareUrl(phone, msg),
+                '_blank',
+                'noopener,noreferrer',
+              );
+            }}
+          >
+            <WhatsAppIcon className="h-3.5 w-3.5" />
+            WhatsApp
+          </Button>
+          <Button type="button" size="sm" onClick={dismissPosted}>
+            Next sale
+          </Button>
+        </div>
+      </div>
+    </SurfaceCard>
+  ) : null;
 
   return (
     <form
@@ -445,11 +708,11 @@ export function QuickSaleForm({
       onSubmit={(e) => {
         e.preventDefault();
         setMessage(null);
-        if (!customerName.trim()) {
+        if (!useWalkIn && !customerName.trim()) {
           setMessage('Customer name is required.');
           return;
         }
-        if (!customerPhone.trim()) {
+        if (!useWalkIn && !customerPhone.trim()) {
           setMessage('Mobile number is required.');
           return;
         }
@@ -459,8 +722,10 @@ export function QuickSaleForm({
         }
         startTransition(async () => {
           const result = await createAndPostQuickSaleAction({
+            useWalkIn,
             customerName: customerName.trim(),
             customerPhone: customerPhone.trim(),
+            billDiscount: Number(billDiscount) || 0,
             payMethod,
             lines: readyLines.map((l) => ({
               variantId: l.variantId,
@@ -477,31 +742,24 @@ export function QuickSaleForm({
           setPunchSuccess(true);
           const delay = prefersReducedMotion() ? 0 : 420;
           if (delay) await new Promise((r) => window.setTimeout(r, delay));
-          setCustomerName('');
-          setCustomerPhone('');
-          setCustomerMatch(null);
-          setLines([emptyLine()]);
-          setFocusSkuIndex(0);
-          router.push(`/sales/${result.data.id}/invoice`);
+          setPosted({
+            id: result.data.id,
+            invoiceNo: result.data.invoiceNo,
+            totalAmount: result.data.totalAmount,
+            customerPhone: result.data.customerPhone,
+          });
+          writeLocal(OPS_KEYS.lastPayMethod, payMethod);
+          pushRecentSkuIds(readyLines.map((l) => l.variantId));
+          setLocalRecentIds(readRecentSkuIds(8));
+          resetFormForNext();
         });
       }}
     >
-      <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(18rem,21rem)] lg:items-start lg:gap-6">
-        {/* Checkout rail — single surface on desktop */}
-        <aside className="order-1 lg:col-start-2 lg:row-start-1 lg:sticky lg:top-24">
-          <SurfaceCard padding="md" className="space-y-0">
-            {customerFields}
-            <div className="mt-5 hidden space-y-5 border-t border-border/80 pt-5 lg:block">
-              {paymentBlock}
-              {totalsBlock}
-              {message ? <p className="text-sm text-destructive">{message}</p> : null}
-              {punchButton()}
-            </div>
-          </SurfaceCard>
-        </aside>
+      {successStrip}
 
-        {/* Items ticket */}
-        <div className="order-2 space-y-3 lg:col-start-1 lg:row-start-1">
+      <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(18rem,21rem)] lg:items-start lg:gap-6">
+        {/* Items first on phone; left column on desktop */}
+        <div className="order-1 space-y-3 lg:col-start-1 lg:row-start-1">
           <div className="flex items-center justify-between gap-2">
             <div className="flex flex-wrap items-center gap-2">
               <h3 className="text-sm font-semibold tracking-tight text-foreground">Items</h3>
@@ -519,6 +777,31 @@ export function QuickSaleForm({
               Add line
             </Button>
           </div>
+
+          {quickPickIds.length > 0 ? (
+            <div className="flex gap-2 overflow-x-auto pb-0.5" aria-label="Recent and frequent items">
+              {quickPickIds.map((id) => {
+                const v = variants.find((x) => x.id === id);
+                if (!v) return null;
+                const short =
+                  v.sku.length > 14 ? `${v.sku.slice(0, 12)}…` : v.sku;
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    className="shrink-0 rounded-lg border border-border/80 bg-card px-2.5 py-1.5 text-left text-xs font-medium text-foreground hover:bg-muted"
+                    onClick={() => {
+                      const emptyIdx = lines.findIndex((l) => !l.variantId);
+                      setLineVariant(emptyIdx >= 0 ? emptyIdx : lines.length - 1, id);
+                    }}
+                    title={v.label}
+                  >
+                    <span className="font-mono">{short}</span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
 
           <SurfaceCard padding="none" className="overflow-hidden">
             <div className="hidden grid-cols-[minmax(0,1fr)_8.5rem_6.5rem_5.5rem_2.75rem] items-center gap-2 border-b border-border/80 bg-muted/40 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground md:grid">
@@ -707,7 +990,19 @@ export function QuickSaleForm({
           </SurfaceCard>
         </div>
 
-        {/* Mobile / tablet checkout below items */}
+        {/* Customer + pay: after items on phone; sticky rail on desktop */}
+        <aside className="order-2 lg:col-start-2 lg:row-start-1 lg:sticky lg:top-24">
+          <SurfaceCard padding="md" className="space-y-0">
+            {customerFields}
+            <div className="mt-5 hidden space-y-5 border-t border-border/80 pt-5 lg:block">
+              {paymentBlock}
+              {totalsBlock}
+              {message ? <p className="text-sm text-destructive">{message}</p> : null}
+              {punchButton()}
+            </div>
+          </SurfaceCard>
+        </aside>
+
         <div className="order-3 space-y-4 lg:hidden">
           <SurfaceCard padding="md" className="space-y-5">
             {paymentBlock}

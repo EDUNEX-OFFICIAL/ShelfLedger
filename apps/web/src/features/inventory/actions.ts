@@ -24,6 +24,23 @@ export async function createPurchaseAction(input: unknown): Promise<ActionResult
   }
 }
 
+export async function createAndPostPurchaseAction(
+  input: unknown,
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    const user = await requireInventoryWrite();
+    const data = purchaseCreateSchema.parse(input);
+    const purchase = await purchaseService.createAndPost(user, data);
+    revalidatePath('/purchases');
+    revalidatePath('/inventory');
+    revalidatePath('/stock-ledger');
+    revalidatePath('/dashboard');
+    return ok({ id: purchase.id });
+  } catch (error) {
+    return fail(error);
+  }
+}
+
 export async function postPurchaseAction(id: string): Promise<ActionResult<{ id: string }>> {
   try {
     const user = await requireInventoryWrite();

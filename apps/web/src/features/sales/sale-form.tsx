@@ -1,11 +1,13 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useMemo, useState, useTransition } from 'react';
+import { computeLineTax, computeRoundOff, distributeBillDiscount, roundMoney } from '@shelfledger/domain';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { FormField } from '@/components/shared/form-field';
+import { MoneyText } from '@/components/shared/money-text';
 import { SurfaceCard } from '@/components/shared/surface-card';
 import {
   StickyFormActions,
@@ -15,7 +17,12 @@ import { createSaleAction } from '@/features/sales/actions';
 import { cn } from '@/lib/utils';
 
 type Option = { id: string; label: string };
-type VariantOption = Option & { sellingPrice: number };
+type VariantOption = Option & {
+  sellingPrice: number;
+  cgstRate: number;
+  sgstRate: number;
+};
+type TaxOption = Option & { cgstRate: number; sgstRate: number };
 
 type Line = {
   variantId: string;
@@ -40,6 +47,58 @@ const PAY_OPTIONS = [
   { value: 'OTHER', label: 'Other' },
 ] as const;
 
+function estimateDraftTotal(
+  lines: Line[],
+  variants: VariantOption[],
+  taxRates: TaxOption[],
+  billDiscount: number,
+) {
+  const prepared: Array<{ gross: number; cgstRate: number; sgstRate: number }> = [];
+  for (const line of lines) {
+    if (!line.variantId) continue;
+    const v = variants.find((x) => x.id === line.variantId);
+    if (!v) continue;
+    const qty = Number(line.qty) || 0;
+    const unitPrice = Number(line.unitPrice) || 0;
+    const lineDisc = Number(line.discountAmount) || 0;
+    if (!(qty > 0)) continue;
+    const gross = roundMoney(qty * unitPrice - lineDisc);
+    if (gross < 0) continue;
+    const tax = line.taxRateId ? taxRates.find((t) => t.id === line.taxRateId) : null;
+    prepared.push({
+      gross,
+      cgstRate: tax ? tax.cgstRate : v.cgstRate,
+      sgstRate: tax ? tax.sgstRate : v.sgstRate,
+    });
+  }
+  const shares = distributeBillDiscount(
+    prepared.map((p) => p.gross),
+    billDiscount,
+  );
+  let subtotal = 0;
+  let taxAmt = 0;
+  for (let i = 0; i < prepared.length; i++) {
+    const row = prepared[i]!;
+    const taxable = roundMoney(row.gross - (shares[i] ?? 0));
+    if (taxable < 0) continue;
+    const tax = computeLineTax({
+      taxableAmount: taxable,
+      cgstRate: row.cgstRate,
+      sgstRate: row.sgstRate,
+    });
+    subtotal = roundMoney(subtotal + taxable);
+    taxAmt = roundMoney(taxAmt + tax.taxAmount);
+  }
+  const beforeRound = roundMoney(subtotal + taxAmt);
+  const roundOff = computeRoundOff(beforeRound);
+  return {
+    subtotal,
+    tax: taxAmt,
+    roundOff,
+    total: roundMoney(beforeRound + roundOff),
+  };
+}
+
 export function SaleForm({
   canWrite,
   canOverride,
@@ -51,7 +110,7 @@ export function SaleForm({
   canOverride: boolean;
   customers: Option[];
   variants: VariantOption[];
-  taxRates: Option[];
+  taxRates: TaxOption[];
 }) {
   const [customerId, setCustomerId] = useState(customers[0]?.id ?? '');
   const [invoiceDate, setInvoiceDate] = useState('');
@@ -63,8 +122,14 @@ export function SaleForm({
   const [payAmount, setPayAmount] = useState('');
   const [payRef, setPayRef] = useState('');
   const [lines, setLines] = useState<Line[]>([emptyLine()]);
+  const [showTaxRates, setShowTaxRates] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+
+  const totals = useMemo(
+    () => estimateDraftTotal(lines, variants, taxRates, Number(billDiscount) || 0),
+    [lines, variants, taxRates, billDiscount],
+  );
 
   if (!canWrite) return null;
 
@@ -149,14 +214,24 @@ export function SaleForm({
                 <h3 className="text-sm font-semibold tracking-tight text-foreground">Lines</h3>
                 <p className="text-xs text-muted-foreground">Unit price excl. GST</p>
               </div>
-              <Button
-                type="button"
-                size="sm"
-                variant="secondary"
-                onClick={() => setLines((l) => [...l, emptyLine()])}
-              >
-                Add line
-              </Button>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  className="text-xs font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+                  onClick={() => setShowTaxRates((v) => !v)}
+                  aria-expanded={showTaxRates}
+                >
+                  {showTaxRates ? 'Hide tax' : 'Tax override'}
+                </button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => setLines((l) => [...l, emptyLine()])}
+                >
+                  Add line
+                </Button>
+              </div>
             </div>
             {lines.map((line, index) => (
               <div
@@ -240,27 +315,57 @@ export function SaleForm({
                     }
                   />
                 </FormField>
-                <FormField
-                  id={`sale-tax-${index}`}
-                  label="Tax rate"
-                  className="lg:col-span-2"
-                >
-                  <Select
+                {showTaxRates ? (
+                  <FormField
                     id={`sale-tax-${index}`}
-                    value={line.taxRateId}
-                    onValueChange={(taxRateId) =>
-                      setLines((rows) =>
-                        rows.map((r, i) => (i === index ? { ...r, taxRateId } : r)),
-                      )
-                    }
-                    placeholder="Article default"
-                    allowClear
-                    clearLabel="Article default"
-                    options={taxRates.map((t) => ({ value: t.id, label: t.label }))}
-                  />
-                </FormField>
+                    label="Tax rate"
+                    className="lg:col-span-2"
+                  >
+                    <Select
+                      id={`sale-tax-${index}`}
+                      value={line.taxRateId}
+                      onValueChange={(taxRateId) =>
+                        setLines((rows) =>
+                          rows.map((r, i) => (i === index ? { ...r, taxRateId } : r)),
+                        )
+                      }
+                      placeholder="Article default"
+                      allowClear
+                      clearLabel="Article default"
+                      options={taxRates.map((t) => ({ value: t.id, label: t.label }))}
+                    />
+                  </FormField>
+                ) : null}
               </div>
             ))}
+          </div>
+
+          <div className="rounded-xl border border-border/70 bg-muted/20 px-3.5 py-3">
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div className="space-y-1 text-sm text-muted-foreground">
+                <div className="flex justify-between gap-6">
+                  <span>Taxable</span>
+                  <MoneyText value={totals.subtotal} />
+                </div>
+                <div className="flex justify-between gap-6">
+                  <span>GST</span>
+                  <MoneyText value={totals.tax} />
+                </div>
+                {totals.roundOff !== 0 ? (
+                  <div className="flex justify-between gap-6">
+                    <span>Round off</span>
+                    <MoneyText value={totals.roundOff} />
+                  </div>
+                ) : null}
+              </div>
+              <div className="text-right">
+                <p className="text-xs font-medium text-muted-foreground">Total</p>
+                <MoneyText
+                  value={totals.total}
+                  className="text-xl font-semibold tracking-tight text-foreground"
+                />
+              </div>
+            </div>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-3">
@@ -272,16 +377,32 @@ export function SaleForm({
                 options={[...PAY_OPTIONS]}
               />
             </FormField>
-            <FormField id="sale-pay-amt" label="Payment amount" hint="Leave empty to create unpaid draft">
-              <Input
-                id="sale-pay-amt"
-                type="number"
-                min="0"
-                step="0.01"
-                value={payAmount}
-                onChange={(e) => setPayAmount(e.target.value)}
-                placeholder="Optional"
-              />
+            <FormField
+              id="sale-pay-amt"
+              label="Payment amount"
+              hint="Leave empty for unpaid draft"
+            >
+              <div className="flex gap-2">
+                <Input
+                  id="sale-pay-amt"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={payAmount}
+                  onChange={(e) => setPayAmount(e.target.value)}
+                  placeholder="Optional"
+                />
+                <Button
+                  type="button"
+                  size="md"
+                  variant="secondary"
+                  className="shrink-0"
+                  disabled={!(totals.total > 0)}
+                  onClick={() => setPayAmount(String(totals.total))}
+                >
+                  Pay full
+                </Button>
+              </div>
             </FormField>
             <FormField id="sale-pay-ref" label="Payment ref">
               <Input

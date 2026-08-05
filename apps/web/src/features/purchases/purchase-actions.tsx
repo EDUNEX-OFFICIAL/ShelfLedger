@@ -4,18 +4,44 @@ import { useState, useTransition } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select } from '@/components/ui/select';
-import { ConfirmDialog } from '@/components/shared/confirm-dialog';
+import {
+  ConfirmDialog,
+  shouldSkipConfirm,
+} from '@/components/shared/confirm-dialog';
 import { postPurchaseAction, postPurchaseReturnAction } from '@/features/inventory/actions';
+import { OPS_KEYS } from '@/lib/ops-prefs';
+import { cn } from '@/lib/utils';
 
 export function PostPurchaseButton({ purchaseId }: { purchaseId: string }) {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
+  const runPost = () => {
+    setError(null);
+    startTransition(async () => {
+      const result = await postPurchaseAction(purchaseId);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      setOpen(false);
+    });
+  };
+
   return (
     <div className="inline-flex flex-col items-end gap-1">
-      <Button size="sm" disabled={pending} onClick={() => setOpen(true)}>
+      <Button
+        size="sm"
+        disabled={pending}
+        onClick={() => {
+          if (shouldSkipConfirm(OPS_KEYS.skipPostPurchaseConfirm)) {
+            runPost();
+            return;
+          }
+          setOpen(true);
+        }}
+      >
         {pending ? 'Posting…' : 'Post'}
       </Button>
       <ConfirmDialog
@@ -24,23 +50,16 @@ export function PostPurchaseButton({ purchaseId }: { purchaseId: string }) {
         description="Stock and average cost will update in stock history."
         confirmLabel="Post purchase"
         pending={pending}
+        skipConfirmKey={OPS_KEYS.skipPostPurchaseConfirm}
         onCancel={() => setOpen(false)}
-        onConfirm={() => {
-          setError(null);
-          startTransition(async () => {
-            const result = await postPurchaseAction(purchaseId);
-            if (!result.ok) {
-              setError(result.error);
-              return;
-            }
-            setOpen(false);
-          });
-        }}
+        onConfirm={runPost}
       />
       {error ? <span className="text-xs text-destructive">{error}</span> : null}
     </div>
   );
 }
+
+type ReturnRow = { id: string; checked: boolean; qty: string };
 
 export function ReturnPurchaseButton({
   purchaseId,
@@ -49,14 +68,24 @@ export function ReturnPurchaseButton({
   purchaseId: string;
   lines: Array<{ id: string; label: string; qty: number }>;
 }) {
-  const first = lines[0];
   const [open, setOpen] = useState(false);
-  const [lineId, setLineId] = useState(first?.id ?? '');
-  const [qty, setQty] = useState('1');
+  const [rows, setRows] = useState<ReturnRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  const selected = lines.find((l) => l.id === lineId) ?? first;
+  const openDialog = () => {
+    setError(null);
+    setRows(
+      lines.map((l, i) => ({
+        id: l.id,
+        checked: i === 0,
+        qty: '1',
+      })),
+    );
+    setOpen(true);
+  };
+
+  const checked = rows.filter((r) => r.checked && Number(r.qty) > 0);
 
   return (
     <div className="inline-flex flex-col items-end gap-1">
@@ -64,12 +93,7 @@ export function ReturnPurchaseButton({
         size="sm"
         variant="secondary"
         disabled={pending || lines.length === 0}
-        onClick={() => {
-          setError(null);
-          setLineId(first?.id ?? '');
-          setQty('1');
-          setOpen(true);
-        }}
+        onClick={openDialog}
       >
         Return
       </Button>
@@ -81,21 +105,26 @@ export function ReturnPurchaseButton({
         pending={pending}
         onCancel={() => setOpen(false)}
         onConfirm={() => {
-          if (!selected) return;
-          const n = Number(qty);
-          if (!(n > 0)) {
-            setError('Enter a qty greater than 0');
+          if (checked.length === 0) {
+            setError('Select at least one line');
             return;
           }
-          if (n > selected.qty) {
-            setError(`Max qty for this line is ${selected.qty}`);
-            return;
+          for (const row of checked) {
+            const line = lines.find((l) => l.id === row.id);
+            const n = Number(row.qty);
+            if (!line || !(n > 0) || n > line.qty) {
+              setError(`Qty must be 1–${line?.qty ?? '?'} for ${line?.label ?? 'line'}`);
+              return;
+            }
           }
           setError(null);
           startTransition(async () => {
             const result = await postPurchaseReturnAction({
               purchaseId,
-              lines: [{ purchaseLineId: selected.id, qty: n }],
+              lines: checked.map((r) => ({
+                purchaseLineId: r.id,
+                qty: Number(r.qty),
+              })),
               notes: 'UI return',
             });
             if (!result.ok) {
@@ -106,30 +135,78 @@ export function ReturnPurchaseButton({
           });
         }}
       >
-        <div className="space-y-1">
-          <Label htmlFor="return-line">Line</Label>
-          <Select
-            id="return-line"
-            value={lineId}
-            onValueChange={setLineId}
-            options={lines.map((l) => ({
-              value: l.id,
-              label: `${l.label} (max ${l.qty})`,
-            }))}
-          />
+        <div className="flex justify-end">
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={() =>
+              setRows(
+                lines.map((l) => ({
+                  id: l.id,
+                  checked: true,
+                  qty: String(l.qty),
+                })),
+              )
+            }
+          >
+            Return all
+          </Button>
         </div>
-        <div className="space-y-1">
-          <Label htmlFor="return-qty">Qty to return</Label>
-          <Input
-            id="return-qty"
-            type="number"
-            min="0.001"
-            step="any"
-            max={selected?.qty}
-            value={qty}
-            onChange={(e) => setQty(e.target.value)}
-          />
-        </div>
+        <ul className="max-h-60 space-y-2 overflow-y-auto">
+          {rows.map((row, index) => {
+            const line = lines.find((l) => l.id === row.id);
+            if (!line) return null;
+            return (
+              <li
+                key={row.id}
+                className={cn(
+                  'grid gap-2 rounded-lg border border-border/70 bg-muted/20 p-2.5 sm:grid-cols-[auto_minmax(0,1fr)_5.5rem] sm:items-center',
+                  row.checked && 'ring-1 ring-primary/25',
+                )}
+              >
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 rounded border-border"
+                  checked={row.checked}
+                  onChange={(e) =>
+                    setRows((prev) =>
+                      prev.map((r, i) =>
+                        i === index ? { ...r, checked: e.target.checked } : r,
+                      ),
+                    )
+                  }
+                  aria-label={`Return ${line.label}`}
+                />
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-foreground">{line.label}</p>
+                  <p className="text-xs text-muted-foreground">Purchased {line.qty}</p>
+                </div>
+                <div className="space-y-0.5">
+                  <Label htmlFor={`ret-qty-${row.id}`} className="sr-only">
+                    Qty
+                  </Label>
+                  <Input
+                    id={`ret-qty-${row.id}`}
+                    type="number"
+                    min="0.001"
+                    step="any"
+                    max={line.qty}
+                    disabled={!row.checked}
+                    value={row.qty}
+                    onChange={(e) =>
+                      setRows((prev) =>
+                        prev.map((r, i) =>
+                          i === index ? { ...r, qty: e.target.value } : r,
+                        ),
+                      )
+                    }
+                  />
+                </div>
+              </li>
+            );
+          })}
+        </ul>
         {error ? <p className="text-xs text-destructive">{error}</p> : null}
       </ConfirmDialog>
       {error && !open ? <span className="text-xs text-destructive">{error}</span> : null}

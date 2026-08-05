@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
@@ -12,7 +12,11 @@ import {
   StickyFormActions,
   stickyFormPadClass,
 } from '@/components/shared/sticky-form-actions';
-import { createPurchaseAction } from '@/features/inventory/actions';
+import {
+  createAndPostPurchaseAction,
+  createPurchaseAction,
+} from '@/features/inventory/actions';
+import { OPS_KEYS, writeLocal } from '@/lib/ops-prefs';
 import { cn } from '@/lib/utils';
 
 type Option = { id: string; label: string };
@@ -38,55 +42,109 @@ export function PurchaseForm({
   vendors,
   variants,
   taxRates,
+  lastRatesByVendor = {},
 }: {
   canWrite: boolean;
   vendors: Option[];
   variants: Option[];
   taxRates: Option[];
+  lastRatesByVendor?: Record<string, Record<string, number>>;
 }) {
   const [vendorId, setVendorId] = useState('');
   const [vendorInvoiceNo, setVendorInvoiceNo] = useState('');
   const [vendorInvoiceDate, setVendorInvoiceDate] = useState('');
   const [notes, setNotes] = useState('');
   const [lines, setLines] = useState<Line[]>([emptyLine()]);
-  const [message, setMessage] = useState<string | null>(null);
+  const [showTaxRates, setShowTaxRates] = useState(false);
+  const [message, setMessage] = useState<{ tone: 'ok' | 'err'; text: string } | null>(
+    null,
+  );
   const [pending, startTransition] = useTransition();
+
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(OPS_KEYS.lastPurchaseVendor);
+      if (saved && vendors.some((v) => v.id === saved)) {
+        setVendorId(saved);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [vendors]);
 
   if (!canWrite) return null;
 
   const blocked = vendors.length === 0 || variants.length === 0;
+  const vendorRates = vendorId ? (lastRatesByVendor[vendorId] ?? {}) : {};
+
+  const buildPayload = () => ({
+    vendorId,
+    vendorInvoiceNo,
+    vendorInvoiceDate,
+    notes,
+    lines: lines.map((l) => ({
+      variantId: l.variantId,
+      qty: Number(l.qty),
+      unitRate: Number(l.unitRate),
+      discountAmount: Number(l.discountAmount || 0),
+      taxRateId: l.taxRateId || null,
+    })),
+  });
+
+  const resetForm = () => {
+    setVendorInvoiceNo('');
+    setVendorInvoiceDate('');
+    setNotes('');
+    setLines([emptyLine()]);
+  };
+
+  const rememberVendor = (id: string) => {
+    setVendorId(id);
+    if (id) writeLocal(OPS_KEYS.lastPurchaseVendor, id);
+  };
+
+  const setLineVariant = (index: number, variantId: string) => {
+    const suggested = vendorRates[variantId];
+    setLines((rows) =>
+      rows.map((r, i) => {
+        if (i !== index) return r;
+        const nextRate =
+          r.unitRate.trim() === '' && suggested != null ? String(suggested) : r.unitRate;
+        return { ...r, variantId, unitRate: nextRate };
+      }),
+    );
+  };
+
+  const submit = (mode: 'draft' | 'receive') => {
+    setMessage(null);
+    startTransition(async () => {
+      const payload = buildPayload();
+      const result =
+        mode === 'receive'
+          ? await createAndPostPurchaseAction(payload)
+          : await createPurchaseAction(payload);
+      if (!result.ok) {
+        setMessage({ tone: 'err', text: result.error });
+        return;
+      }
+      rememberVendor(vendorId);
+      resetForm();
+      setMessage({
+        tone: 'ok',
+        text:
+          mode === 'receive'
+            ? 'Purchase received — stock and average cost updated.'
+            : 'Draft saved. Post it from All purchases to receive stock on the shelf.',
+      });
+    });
+  };
 
   return (
     <form
       className={cn('space-y-4', stickyFormPadClass)}
       onSubmit={(e) => {
         e.preventDefault();
-        setMessage(null);
-        startTransition(async () => {
-          const result = await createPurchaseAction({
-            vendorId,
-            vendorInvoiceNo,
-            vendorInvoiceDate,
-            notes,
-            lines: lines.map((l) => ({
-              variantId: l.variantId,
-              qty: Number(l.qty),
-              unitRate: Number(l.unitRate),
-              discountAmount: Number(l.discountAmount || 0),
-              taxRateId: l.taxRateId || null,
-            })),
-          });
-          if (!result.ok) {
-            setMessage(result.error);
-            return;
-          }
-          setMessage('ok');
-          setVendorId('');
-          setVendorInvoiceNo('');
-          setVendorInvoiceDate('');
-          setNotes('');
-          setLines([emptyLine()]);
-        });
+        submit('receive');
       }}
     >
       <SurfaceCard padding="none" className="overflow-hidden">
@@ -117,7 +175,7 @@ export function PurchaseForm({
               <Select
                 id="po-vendor"
                 value={vendorId}
-                onValueChange={setVendorId}
+                onValueChange={rememberVendor}
                 placeholder="Select vendor"
                 required
                 options={vendors.map((v) => ({ value: v.id, label: v.label }))}
@@ -144,16 +202,31 @@ export function PurchaseForm({
             <div className="flex items-center justify-between gap-2">
               <div>
                 <h3 className="text-sm font-semibold tracking-tight text-foreground">Lines</h3>
-                <p className="text-xs text-muted-foreground">Unit rate excl. GST</p>
+                <p className="text-xs text-muted-foreground">
+                  Unit rate excl. GST
+                  {vendorId && Object.keys(vendorRates).length > 0
+                    ? ' · last rates autofill when empty'
+                    : null}
+                </p>
               </div>
-              <Button
-                type="button"
-                size="sm"
-                variant="secondary"
-                onClick={() => setLines((l) => [...l, emptyLine()])}
-              >
-                Add line
-              </Button>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  className="text-xs font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+                  onClick={() => setShowTaxRates((v) => !v)}
+                  aria-expanded={showTaxRates}
+                >
+                  {showTaxRates ? 'Hide tax' : 'Tax override'}
+                </button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => setLines((l) => [...l, emptyLine()])}
+                >
+                  Add line
+                </Button>
+              </div>
             </div>
             {lines.map((line, index) => (
               <div
@@ -169,11 +242,7 @@ export function PurchaseForm({
                   <Select
                     id={`po-var-${index}`}
                     value={line.variantId}
-                    onValueChange={(variantId) =>
-                      setLines((rows) =>
-                        rows.map((r, i) => (i === index ? { ...r, variantId } : r)),
-                      )
-                    }
+                    onValueChange={(variantId) => setLineVariant(index, variantId)}
                     placeholder="Select item code"
                     required
                     searchable
@@ -228,21 +297,23 @@ export function PurchaseForm({
                     }
                   />
                 </FormField>
-                <FormField id={`po-tax-${index}`} label="Tax rate" className="lg:col-span-2">
-                  <Select
-                    id={`po-tax-${index}`}
-                    value={line.taxRateId}
-                    onValueChange={(taxRateId) =>
-                      setLines((rows) =>
-                        rows.map((r, i) => (i === index ? { ...r, taxRateId } : r)),
-                      )
-                    }
-                    placeholder="Default / none"
-                    allowClear
-                    clearLabel="Default / none"
-                    options={taxRates.map((t) => ({ value: t.id, label: t.label }))}
-                  />
-                </FormField>
+                {showTaxRates ? (
+                  <FormField id={`po-tax-${index}`} label="Tax rate" className="lg:col-span-2">
+                    <Select
+                      id={`po-tax-${index}`}
+                      value={line.taxRateId}
+                      onValueChange={(taxRateId) =>
+                        setLines((rows) =>
+                          rows.map((r, i) => (i === index ? { ...r, taxRateId } : r)),
+                        )
+                      }
+                      placeholder="Default / none"
+                      allowClear
+                      clearLabel="Default / none"
+                      options={taxRates.map((t) => ({ value: t.id, label: t.label }))}
+                    />
+                  </FormField>
+                ) : null}
               </div>
             ))}
           </div>
@@ -256,34 +327,55 @@ export function PurchaseForm({
             />
           </FormField>
 
-          {message === 'ok' ? (
-            <p className="text-sm font-medium text-success" role="status">
-              Draft saved.{' '}
-              <a
-                href="#all-purchases"
-                className="underline underline-offset-2 hover:text-success/90"
-              >
-                Post it from All purchases
-              </a>{' '}
-              to receive stock on the shelf.
-            </p>
-          ) : message ? (
-            <p className="text-sm text-destructive" role="alert">
-              {message}
+          {message ? (
+            <p
+              className={
+                message.tone === 'ok'
+                  ? 'text-sm font-medium text-success'
+                  : 'text-sm text-destructive'
+              }
+              role={message.tone === 'ok' ? 'status' : 'alert'}
+            >
+              {message.tone === 'ok' && message.text.includes('Draft saved') ? (
+                <>
+                  Draft saved.{' '}
+                  <a
+                    href="#all-purchases"
+                    className="underline underline-offset-2 hover:text-success/90"
+                  >
+                    Post it from All purchases
+                  </a>{' '}
+                  to receive stock on the shelf.
+                </>
+              ) : (
+                message.text
+              )}
             </p>
           ) : null}
         </div>
       </SurfaceCard>
 
       <StickyFormActions>
-        <Button
-          type="submit"
-          size="lg"
-          disabled={pending || blocked}
-          className="h-12 w-full text-base md:h-11 md:w-auto"
-        >
-          {pending ? 'Saving…' : 'Create draft purchase'}
-        </Button>
+        <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row-reverse">
+          <Button
+            type="submit"
+            size="lg"
+            disabled={pending || blocked}
+            className="h-12 w-full text-base md:h-11 md:w-auto"
+          >
+            {pending ? 'Saving…' : 'Save & receive stock'}
+          </Button>
+          <Button
+            type="button"
+            size="lg"
+            variant="secondary"
+            disabled={pending || blocked}
+            className="h-12 w-full text-base md:h-11 md:w-auto"
+            onClick={() => submit('draft')}
+          >
+            Save draft
+          </Button>
+        </div>
       </StickyFormActions>
     </form>
   );

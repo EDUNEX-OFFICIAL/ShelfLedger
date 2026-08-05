@@ -151,8 +151,19 @@ export default async function SalesPage({
               id: v.id,
               label: `${v.sku} — ${v.article.name} (${v.size}/${v.color})`,
               sellingPrice: Number(v.sellingPrice),
+              cgstRate: v.article.defaultTaxRate
+                ? Number(v.article.defaultTaxRate.cgstRate)
+                : 0,
+              sgstRate: v.article.defaultTaxRate
+                ? Number(v.article.defaultTaxRate.sgstRate)
+                : 0,
             }))}
-            taxRates={taxRates.map((t) => ({ id: t.id, label: t.name }))}
+            taxRates={taxRates.map((t) => ({
+              id: t.id,
+              label: t.name,
+              cgstRate: Number(t.cgstRate),
+              sgstRate: Number(t.sgstRate),
+            }))}
           />
         </DraftSalePanel>
       ) : null}

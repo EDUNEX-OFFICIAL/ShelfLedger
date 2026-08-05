@@ -203,21 +203,39 @@ export function normalizeCustomerPhone(raw: string): string {
   return digits;
 }
 
-/** Quick Sale: capture name + mobile (no customer picker); always walk-in style counter flow. */
-export const quickSaleSchema = z.object({
-  customerName: z.string().trim().min(1, 'Name is required').max(160),
-  customerPhone: z
-    .string()
-    .trim()
-    .min(1, 'Mobile number is required')
-    .max(20)
-    .transform((v) => normalizeCustomerPhone(v))
-    .refine((v) => v.length >= 10 && v.length <= 15, {
-      message: 'Enter a valid 10-digit mobile number',
-    }),
-  payMethod: paymentMethodSchema,
-  lines: z.array(saleLineInputSchema).min(1),
-});
+/** Quick Sale: name+mobile, or system walk-in via useWalkIn. */
+export const quickSaleSchema = z
+  .object({
+    useWalkIn: z.boolean().default(false),
+    customerName: z.string().trim().max(160).optional().default(''),
+    customerPhone: z.string().trim().max(20).optional().default(''),
+    billDiscount: z.coerce.number().min(0).max(1_000_000).default(0),
+    payMethod: paymentMethodSchema,
+    lines: z.array(saleLineInputSchema).min(1),
+  })
+  .superRefine((data, ctx) => {
+    if (data.useWalkIn) return;
+    if (!data.customerName.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Name is required',
+        path: ['customerName'],
+      });
+    }
+    const phone = normalizeCustomerPhone(data.customerPhone);
+    if (!phone || phone.length < 10 || phone.length > 15) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Enter a valid 10-digit mobile number',
+        path: ['customerPhone'],
+      });
+    }
+  })
+  .transform((data) => ({
+    ...data,
+    customerName: data.customerName.trim(),
+    customerPhone: data.useWalkIn ? '' : normalizeCustomerPhone(data.customerPhone),
+  }));
 
 export const exchangeReturnLineSchema = z.object({
   originalSaleLineId: z.string().uuid(),

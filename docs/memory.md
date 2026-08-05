@@ -1,8 +1,8 @@
 # AI Memory — ShelfLedger
 
-**Current Phase:** Phase 6.1 Quick Sale complete  
+**Current Phase:** Phase 6.1 + P0–P2 ops speed  
 **Path:** `/srv/ShelfLedger`  
-**Last Updated:** 2026-07-29
+**Last Updated:** 2026-08-05
 
 ## Completed
 
@@ -73,13 +73,16 @@
 - **Pre-burn-in polish:** masters FormField (brand/category/vendor/customer/article); dashboard Low stock → `/reports#low-stock`; success/error micro-UX on master forms
 - **UI consistency page-by-page: complete** (dashboard through settings)
 - **Mobile-first (locked):** phones/tablets are primary staff devices — ADR-012 / `docs/design.md`
-- **Quick Sale:** `/sales/quick` — walk-in default, pay-in-full, sticky Punch sale → invoice; dashboard primary CTA
-- **Quick Sale UX (desktop):** wider layout + `lg` 2-col sticky rail; denser item rows; phone lookup; stock hint; F2/1/2/3/+ shortcuts; punch block hints
+- **Quick Sale:** `/sales/quick` — Walk-in chip or name+phone; pay-in-full; sticky Punch; stay on page with Invoice/Print/WhatsApp/Next sale strip
+- **Quick Sale UX (desktop):** wider layout + `lg` 2-col sticky rail; denser item rows; phone lookup; stock hint; F2/1/2/3/+ shortcuts; barcode Enter exact match + qty bump
 - **Quick Sale look:** unified checkout rail; hero total; payment icons + filled selected; Punch spinner/Posted; items ticket + stock badges; mobile sticky mini total; micro-motion utilities
+- **P0 ops speed:** Walk-in skip; barcode wedge path; stay-after-punch; purchase **Save & receive stock** (create+post); exchange return checklist + Return all
+- **P1 ops speed:** Exchange live Collect/Refund Δ; Quick Sale items-first + Adjust discount; purchase last vendor/rates; draft Pay full + live totals; invoice → Exchange deep link
+- **P2 ops speed:** Remember pay method; tax override collapsed; multi-line purchase return; recent/frequent SKU chips; Post confirm “Don’t ask again today”
 
 ## Pending / follow-ups
 
-- Phase 7+ optional: barcode, multi-branch UI, IGST (not requested)
+- Phase 7+ optional: barcode camera/printing, async SKU typeahead at scale, multi-branch UI, IGST (not requested)
 
 ## Never Forget
 

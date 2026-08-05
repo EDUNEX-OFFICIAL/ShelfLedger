@@ -38,11 +38,29 @@ export default async function PurchasesPage({
   const draftCount = purchases.filter((p) => p.status === 'DRAFT').length;
   const contextLabel = filterContextLabel(status);
 
+  const lastRatesByVendor: Record<string, Record<string, number>> = {};
+  const postedNewest = [...purchases]
+    .filter((p) => p.status === 'POSTED')
+    .sort((a, b) => {
+      const ta = a.postedAt ? new Date(a.postedAt).getTime() : 0;
+      const tb = b.postedAt ? new Date(b.postedAt).getTime() : 0;
+      return tb - ta;
+    });
+  for (const p of postedNewest) {
+    if (!lastRatesByVendor[p.vendorId]) lastRatesByVendor[p.vendorId] = {};
+    const rates = lastRatesByVendor[p.vendorId]!;
+    for (const line of p.lines) {
+      if (rates[line.variantId] === undefined) {
+        rates[line.variantId] = Number(line.unitRate);
+      }
+    }
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
         title="Purchases"
-        description="Enter a vendor bill, then Post to receive stock and update average cost."
+        description="Enter a vendor bill and receive stock in one action — or save a draft to post later."
         actions={
           canWrite ? (
             <a href="#new-purchase" className={buttonClassName({ size: 'lg' })}>
@@ -99,7 +117,7 @@ export default async function PurchasesPage({
         <section id="new-purchase" className="scroll-mt-24 space-y-3">
           <SectionHeader
             title="New vendor bill"
-            description="Lines are ex-GST. Saving creates a draft — Post from the list to put stock on the shelf."
+            description="Primary: Save & receive stock. Draft remains for bills you want to review first. Last vendor rates autofill when known."
           />
           <PurchaseForm
             canWrite={canWrite}
@@ -109,6 +127,7 @@ export default async function PurchasesPage({
               label: `${v.sku} — ${v.article.name} (${v.size}/${v.color})`,
             }))}
             taxRates={taxRates.map((t) => ({ id: t.id, label: t.name }))}
+            lastRatesByVendor={lastRatesByVendor}
           />
         </section>
       ) : null}

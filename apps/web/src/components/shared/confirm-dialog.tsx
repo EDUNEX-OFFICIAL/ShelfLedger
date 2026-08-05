@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useId, useRef, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
+import { isSkipConfirmToday, setSkipConfirmToday } from '@/lib/ops-prefs';
 import { cn } from '@/lib/utils';
 
 export function ConfirmDialog({
@@ -15,6 +16,7 @@ export function ConfirmDialog({
   onConfirm,
   onCancel,
   children,
+  skipConfirmKey,
 }: {
   open: boolean;
   title: string;
@@ -26,12 +28,16 @@ export function ConfirmDialog({
   onConfirm: () => void;
   onCancel: () => void;
   children?: ReactNode;
+  /** When set, shows “Don’t ask again today” and persists skip for this calendar day. */
+  skipConfirmKey?: string;
 }) {
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
+  const [dontAsk, setDontAsk] = useState(false);
 
   useEffect(() => {
     if (!open) return;
+    setDontAsk(false);
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onCancel();
     };
@@ -64,6 +70,17 @@ export function ConfirmDialog({
         </h2>
         {description ? <p className="mt-2 text-sm text-muted-foreground">{description}</p> : null}
         {children ? <div className="mt-4 space-y-3">{children}</div> : null}
+        {skipConfirmKey ? (
+          <label className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
+            <input
+              type="checkbox"
+              className="h-4 w-4 rounded border-border"
+              checked={dontAsk}
+              onChange={(e) => setDontAsk(e.target.checked)}
+            />
+            Don&apos;t ask again today
+          </label>
+        ) : null}
         <div className="mt-5 flex justify-end gap-2">
           <Button type="button" variant="secondary" size="md" onClick={onCancel} disabled={pending}>
             {cancelLabel}
@@ -72,7 +89,10 @@ export function ConfirmDialog({
             type="button"
             size="md"
             variant={danger ? 'danger' : 'primary'}
-            onClick={onConfirm}
+            onClick={() => {
+              if (skipConfirmKey && dontAsk) setSkipConfirmToday(skipConfirmKey);
+              onConfirm();
+            }}
             disabled={pending}
           >
             {pending ? 'Working…' : confirmLabel}
@@ -81,4 +101,9 @@ export function ConfirmDialog({
       </div>
     </div>
   );
+}
+
+/** Returns true if confirm should be skipped for this key today. */
+export function shouldSkipConfirm(key: string): boolean {
+  return isSkipConfirmToday(key);
 }

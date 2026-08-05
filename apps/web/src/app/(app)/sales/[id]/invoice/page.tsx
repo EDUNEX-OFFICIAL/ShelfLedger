@@ -1,11 +1,15 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Receipt } from 'lucide-react';
+import { Suspense } from 'react';
+import { ArrowLeft, ArrowLeftRight, Receipt } from 'lucide-react';
+import { canSell } from '@shelfledger/db';
 import { requireSession } from '@/server/auth/guards';
 import { saleService } from '@/server/services/sale';
 import { InvoiceDocument } from '@/features/sales/invoice-document';
 import { InvoiceActions } from '@/features/sales/whatsapp-share-button';
+import { InvoicePrintTrigger } from '@/features/sales/invoice-print-trigger';
 import { StatusBadge } from '@/components/ui/badge';
+import { buttonClassName } from '@/components/ui/button';
 import { SurfaceCard } from '@/components/shared/surface-card';
 
 export default async function InvoicePage({
@@ -21,9 +25,13 @@ export default async function InvoicePage({
   const org = sale.organization;
   const cgst = sale.lines.reduce((s, l) => s + Number(l.cgstAmount), 0);
   const sgst = sale.lines.reduce((s, l) => s + Number(l.sgstAmount), 0);
+  const canExchange = canSell(user.role);
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 print:max-w-none print:space-y-0">
+      <Suspense fallback={null}>
+        <InvoicePrintTrigger />
+      </Suspense>
       <div className="space-y-4 print:hidden">
         <div>
           <div className="mb-2 flex flex-wrap items-center gap-2">
@@ -56,26 +64,39 @@ export default async function InvoicePage({
         </div>
 
         <SurfaceCard padding="sm">
-          <InvoiceActions
-            invoice={{
-              shopName: org.name,
-              invoiceNo: sale.invoiceNo,
-              invoiceDate: sale.invoiceDate.toISOString().slice(0, 10),
-              customerName: sale.customer.isWalkIn ? 'Customer' : sale.customer.name,
-              customerPhone: sale.customer.phone,
-              lines: sale.lines.map((l) => ({
-                name: l.variant.article.name,
-                sku: l.variant.sku,
-                qty: Number(l.qty),
-                lineTotal: Number(l.lineTotal),
-              })),
-              taxable: Number(sale.subtotal),
-              cgst,
-              sgst,
-              total: Number(sale.totalAmount),
-              paymentStatus: sale.paymentStatus,
-            }}
-          />
+          <div className="flex flex-col gap-3">
+            <InvoiceActions
+              invoice={{
+                shopName: org.name,
+                invoiceNo: sale.invoiceNo,
+                invoiceDate: sale.invoiceDate.toISOString().slice(0, 10),
+                customerName: sale.customer.isWalkIn ? 'Customer' : sale.customer.name,
+                customerPhone: sale.customer.phone,
+                lines: sale.lines.map((l) => ({
+                  name: l.variant.article.name,
+                  sku: l.variant.sku,
+                  qty: Number(l.qty),
+                  lineTotal: Number(l.lineTotal),
+                })),
+                taxable: Number(sale.subtotal),
+                cgst,
+                sgst,
+                total: Number(sale.totalAmount),
+                paymentStatus: sale.paymentStatus,
+              }}
+            />
+            {canExchange ? (
+              <div className="border-t border-border/70 pt-3">
+                <Link
+                  href={`/exchanges?sale=${sale.id}#new-exchange`}
+                  className={buttonClassName({ variant: 'secondary', size: 'sm' })}
+                >
+                  <ArrowLeftRight className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
+                  Exchange / return
+                </Link>
+              </div>
+            ) : null}
+          </div>
         </SurfaceCard>
       </div>
 

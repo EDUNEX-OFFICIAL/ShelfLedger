@@ -1,13 +1,15 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { computeLineTax, roundMoney } from '@shelfledger/domain';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { FormField } from '@/components/shared/form-field';
+import { MoneyText } from '@/components/shared/money-text';
 import { SurfaceCard } from '@/components/shared/surface-card';
 import {
   StickyFormActions,
@@ -17,16 +19,42 @@ import { createExchangeAction } from '@/features/sales/actions';
 import { cn } from '@/lib/utils';
 
 type Option = { id: string; label: string };
-type VariantOption = Option & { sellingPrice: number };
+type VariantOption = Option & {
+  sellingPrice: number;
+  cgstRate: number;
+  sgstRate: number;
+};
 type SaleOption = {
   id: string;
   label: string;
   customerId: string;
-  lines: Array<{ id: string; label: string; qty: number; unitPrice: number }>;
+  lines: Array<{
+    id: string;
+    label: string;
+    qty: number;
+    unitPrice: number;
+    cgstRate: number;
+    sgstRate: number;
+  }>;
 };
 
-type ReturnLine = { originalSaleLineId: string; qty: string };
+type ReturnRow = { originalSaleLineId: string; checked: boolean; qty: string };
 type ReplaceLine = { variantId: string; qty: string; unitPrice: string; taxRateId: string };
+
+function rowsFromSaleLines(saleLines: SaleOption['lines']): ReturnRow[] {
+  return saleLines.map((l, i) => ({
+    originalSaleLineId: l.id,
+    checked: i === 0,
+    qty: '1',
+  }));
+}
+
+function lineTotalInclTax(qty: number, unitPrice: number, cgstRate: number, sgstRate: number) {
+  if (!(qty > 0)) return 0;
+  const taxable = roundMoney(qty * unitPrice);
+  const tax = computeLineTax({ taxableAmount: taxable, cgstRate, sgstRate });
+  return roundMoney(taxable + tax.taxAmount);
+}
 
 export function ExchangeForm({
   canWrite,
@@ -34,21 +62,22 @@ export function ExchangeForm({
   sales,
   variants,
   taxRates,
+  initialSaleId = '',
 }: {
   canWrite: boolean;
   customers: Option[];
   sales: SaleOption[];
   variants: VariantOption[];
   taxRates: Option[];
+  initialSaleId?: string;
 }) {
   const router = useRouter();
   const [customerId, setCustomerId] = useState('');
   const [originalSaleId, setOriginalSaleId] = useState('');
   const [notes, setNotes] = useState('');
-  const [returnLines, setReturnLines] = useState<ReturnLine[]>([
-    { originalSaleLineId: '', qty: '1' },
-  ]);
+  const [returnRows, setReturnRows] = useState<ReturnRow[]>([]);
   const [replaceLines, setReplaceLines] = useState<ReplaceLine[]>([]);
+  const [showTaxRates, setShowTaxRates] = useState(false);
   const [message, setMessage] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -62,9 +91,96 @@ export function ExchangeForm({
     [sales, originalSaleId],
   );
 
+  const checkedReturns = returnRows.filter((r) => r.checked && Number(r.qty) > 0);
+
+  const selectInvoice = (id: string) => {
+    setOriginalSaleId(id);
+    const sale = sales.find((s) => s.id === id);
+    if (sale) {
+      setCustomerId(sale.customerId);
+      setReturnRows(rowsFromSaleLines(sale.lines));
+    } else {
+      setReturnRows([]);
+    }
+  };
+
+  useEffect(() => {
+    if (!initialSaleId) return;
+    const sale = sales.find((s) => s.id === initialSaleId);
+    if (!sale) return;
+    setOriginalSaleId(sale.id);
+    setCustomerId(sale.customerId);
+    setReturnRows(rowsFromSaleLines(sale.lines));
+  }, [initialSaleId, sales]);
+
+  const preview = useMemo(() => {
+    let returnTotal = 0;
+    for (const row of checkedReturns) {
+      const line = saleLines.find((l) => l.id === row.originalSaleLineId);
+      if (!line) continue;
+      returnTotal = roundMoney(
+        returnTotal +
+          lineTotalInclTax(Number(row.qty), line.unitPrice, line.cgstRate, line.sgstRate),
+      );
+    }
+    let replaceTotal = 0;
+    for (const rep of replaceLines) {
+      if (!rep.variantId || !(Number(rep.qty) > 0)) continue;
+      const v = variants.find((x) => x.id === rep.variantId);
+      if (!v) continue;
+      replaceTotal = roundMoney(
+        replaceTotal +
+          lineTotalInclTax(
+            Number(rep.qty),
+            Number(rep.unitPrice) || 0,
+            v.cgstRate,
+            v.sgstRate,
+          ),
+      );
+    }
+    const difference = roundMoney(replaceTotal - returnTotal);
+    return { returnTotal, replaceTotal, difference };
+  }, [checkedReturns, saleLines, replaceLines, variants]);
+
   if (!canWrite) return null;
 
   const blocked = sales.length === 0;
+
+  const diffHero =
+    originalSaleId && (checkedReturns.length > 0 || replaceLines.some((l) => l.variantId)) ? (
+      <SurfaceCard
+        padding="md"
+        className={cn(
+          preview.difference > 0 && 'border-primary/30 bg-primary/5',
+          preview.difference < 0 && 'border-warning/40 bg-warning/10',
+          preview.difference === 0 && 'border-border/80 bg-muted/30',
+        )}
+      >
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              {preview.difference > 0
+                ? 'Collect from customer'
+                : preview.difference < 0
+                  ? 'Refund / credit'
+                  : 'Even swap'}
+            </p>
+            <MoneyText
+              value={Math.abs(preview.difference)}
+              className="mt-1 text-2xl font-semibold tracking-tight text-foreground"
+            />
+          </div>
+          <div className="space-y-1 text-right text-xs text-muted-foreground">
+            <p>
+              Return <MoneyText value={preview.returnTotal} className="text-xs" />
+            </p>
+            <p>
+              Replace <MoneyText value={preview.replaceTotal} className="text-xs" />
+            </p>
+          </div>
+        </div>
+      </SurfaceCard>
+    ) : null;
 
   return (
     <form
@@ -79,11 +195,26 @@ export function ExchangeForm({
             setMessage({ tone: 'err', text: 'Select an original invoice' });
             return;
           }
+          if (checkedReturns.length === 0) {
+            setMessage({ tone: 'err', text: 'Select at least one return line' });
+            return;
+          }
+          for (const row of checkedReturns) {
+            const line = saleLines.find((l) => l.id === row.originalSaleLineId);
+            const qty = Number(row.qty);
+            if (!line || !(qty > 0) || qty > line.qty) {
+              setMessage({
+                tone: 'err',
+                text: `Return qty must be between 1 and sold qty for ${line?.label ?? 'line'}`,
+              });
+              return;
+            }
+          }
           const result = await createExchangeAction({
             customerId: resolvedCustomerId,
             originalSaleId,
             notes,
-            returnLines: returnLines.map((l) => ({
+            returnLines: checkedReturns.map((l) => ({
               originalSaleLineId: l.originalSaleLineId,
               qty: Number(l.qty),
             })),
@@ -105,12 +236,14 @@ export function ExchangeForm({
           setCustomerId('');
           setOriginalSaleId('');
           setNotes('');
-          setReturnLines([{ originalSaleLineId: '', qty: '1' }]);
+          setReturnRows([]);
           setReplaceLines([]);
           router.refresh();
         });
       }}
     >
+      {diffHero}
+
       <SurfaceCard padding="none" className="overflow-hidden">
         <div className="space-y-5 p-5">
           {blocked ? (
@@ -137,12 +270,7 @@ export function ExchangeForm({
               <Select
                 id="ex-sale"
                 value={originalSaleId}
-                onValueChange={(id) => {
-                  setOriginalSaleId(id);
-                  const sale = sales.find((s) => s.id === id);
-                  if (sale) setCustomerId(sale.customerId);
-                  setReturnLines([{ originalSaleLineId: '', qty: '1' }]);
-                }}
+                onValueChange={selectInvoice}
                 placeholder="Search invoice…"
                 required
                 searchable
@@ -162,7 +290,7 @@ export function ExchangeForm({
                   const sale = sales.find((s) => s.id === originalSaleId);
                   if (sale && sale.customerId !== id) {
                     setOriginalSaleId('');
-                    setReturnLines([{ originalSaleLineId: '', qty: '1' }]);
+                    setReturnRows([]);
                   }
                 }}
                 placeholder="All customers"
@@ -187,56 +315,85 @@ export function ExchangeForm({
                 type="button"
                 size="sm"
                 variant="secondary"
-                disabled={!originalSaleId}
+                disabled={!originalSaleId || saleLines.length === 0}
                 onClick={() =>
-                  setReturnLines((rows) => [...rows, { originalSaleLineId: '', qty: '1' }])
+                  setReturnRows(
+                    saleLines.map((l) => ({
+                      originalSaleLineId: l.id,
+                      checked: true,
+                      qty: String(l.qty),
+                    })),
+                  )
                 }
               >
-                Add return
+                Return all
               </Button>
             </div>
             {!originalSaleId ? (
-              <p className="text-xs text-muted-foreground">Select an invoice to choose return lines.</p>
+              <p className="text-xs text-muted-foreground">
+                Select an invoice to choose return lines.
+              </p>
+            ) : saleLines.length === 0 ? (
+              <p className="text-xs text-muted-foreground">This invoice has no lines.</p>
             ) : (
-              returnLines.map((line, index) => (
-                <div
-                  key={index}
-                  className="grid gap-3 rounded-xl border border-border/70 bg-muted/30 p-3.5 sm:grid-cols-2"
-                >
-                  <FormField id={`ex-ret-line-${index}`} label="Original sale line" required>
-                    <Select
-                      id={`ex-ret-line-${index}`}
-                      value={line.originalSaleLineId}
-                      onValueChange={(originalSaleLineId) =>
-                        setReturnLines((rows) =>
-                          rows.map((r, i) => (i === index ? { ...r, originalSaleLineId } : r)),
-                        )
-                      }
-                      placeholder="Select line"
-                      required
-                      options={saleLines.map((l) => ({
-                        value: l.id,
-                        label: `${l.label} (sold ${l.qty})`,
-                      }))}
-                    />
-                  </FormField>
-                  <FormField id={`ex-ret-qty-${index}`} label="Qty returning" required>
-                    <Input
-                      id={`ex-ret-qty-${index}`}
-                      type="number"
-                      min="0.001"
-                      step="any"
-                      value={line.qty}
-                      onChange={(e) =>
-                        setReturnLines((rows) =>
-                          rows.map((r, i) => (i === index ? { ...r, qty: e.target.value } : r)),
-                        )
-                      }
-                      required
-                    />
-                  </FormField>
-                </div>
-              ))
+              <ul className="space-y-2">
+                {returnRows.map((row, index) => {
+                  const line = saleLines.find((l) => l.id === row.originalSaleLineId);
+                  if (!line) return null;
+                  return (
+                    <li
+                      key={row.originalSaleLineId}
+                      className={cn(
+                        'grid gap-3 rounded-xl border border-border/70 bg-muted/30 p-3.5 sm:grid-cols-[auto_minmax(0,1fr)_7rem] sm:items-center',
+                        row.checked && 'ring-1 ring-primary/25',
+                      )}
+                    >
+                      <label className="flex items-center gap-2 sm:contents">
+                        <input
+                          type="checkbox"
+                          className="h-5 w-5 rounded border-border"
+                          checked={row.checked}
+                          onChange={(e) =>
+                            setReturnRows((rows) =>
+                              rows.map((r, i) =>
+                                i === index ? { ...r, checked: e.target.checked } : r,
+                              ),
+                            )
+                          }
+                          aria-label={`Return ${line.label}`}
+                        />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-foreground">{line.label}</p>
+                          <p className="text-xs text-muted-foreground">Sold {line.qty}</p>
+                        </div>
+                      </label>
+                      <FormField
+                        id={`ex-ret-qty-${index}`}
+                        label="Qty returning"
+                        className={cn(!row.checked && 'opacity-50')}
+                      >
+                        <Input
+                          id={`ex-ret-qty-${index}`}
+                          type="number"
+                          min="0.001"
+                          step="any"
+                          max={line.qty}
+                          value={row.qty}
+                          disabled={!row.checked}
+                          onChange={(e) =>
+                            setReturnRows((rows) =>
+                              rows.map((r, i) =>
+                                i === index ? { ...r, qty: e.target.value } : r,
+                              ),
+                            )
+                          }
+                          required={row.checked}
+                        />
+                      </FormField>
+                    </li>
+                  );
+                })}
+              </ul>
             )}
           </div>
 
@@ -250,19 +407,31 @@ export function ExchangeForm({
                   Optional size/style swap — leave empty for return-only
                 </p>
               </div>
-              <Button
-                type="button"
-                size="sm"
-                variant="secondary"
-                onClick={() =>
-                  setReplaceLines((rows) => [
-                    ...rows,
-                    { variantId: '', qty: '1', unitPrice: '', taxRateId: '' },
-                  ])
-                }
-              >
-                Add replace
-              </Button>
+              <div className="flex flex-wrap items-center gap-2">
+                {replaceLines.length > 0 ? (
+                  <button
+                    type="button"
+                    className="text-xs font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+                    onClick={() => setShowTaxRates((v) => !v)}
+                    aria-expanded={showTaxRates}
+                  >
+                    {showTaxRates ? 'Hide tax' : 'Tax override'}
+                  </button>
+                ) : null}
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  onClick={() =>
+                    setReplaceLines((rows) => [
+                      ...rows,
+                      { variantId: '', qty: '1', unitPrice: '', taxRateId: '' },
+                    ])
+                  }
+                >
+                  Add replace
+                </Button>
+              </div>
             </div>
             {replaceLines.length === 0 ? (
               <p className="text-xs text-muted-foreground">
@@ -335,25 +504,27 @@ export function ExchangeForm({
                       required
                     />
                   </FormField>
-                  <FormField
-                    id={`ex-rep-tax-${index}`}
-                    label="Tax rate"
-                    className="lg:col-span-2"
-                  >
-                    <Select
+                  {showTaxRates ? (
+                    <FormField
                       id={`ex-rep-tax-${index}`}
-                      value={line.taxRateId}
-                      onValueChange={(taxRateId) =>
-                        setReplaceLines((rows) =>
-                          rows.map((r, i) => (i === index ? { ...r, taxRateId } : r)),
-                        )
-                      }
-                      placeholder="Article default"
-                      allowClear
-                      clearLabel="Article default"
-                      options={taxRates.map((t) => ({ value: t.id, label: t.label }))}
-                    />
-                  </FormField>
+                      label="Tax rate"
+                      className="lg:col-span-2"
+                    >
+                      <Select
+                        id={`ex-rep-tax-${index}`}
+                        value={line.taxRateId}
+                        onValueChange={(taxRateId) =>
+                          setReplaceLines((rows) =>
+                            rows.map((r, i) => (i === index ? { ...r, taxRateId } : r)),
+                          )
+                        }
+                        placeholder="Article default"
+                        allowClear
+                        clearLabel="Article default"
+                        options={taxRates.map((t) => ({ value: t.id, label: t.label }))}
+                      />
+                    </FormField>
+                  ) : null}
                 </div>
               ))
             )}
@@ -388,7 +559,7 @@ export function ExchangeForm({
         <Button
           type="submit"
           size="lg"
-          disabled={pending || blocked || !originalSaleId}
+          disabled={pending || blocked || !originalSaleId || checkedReturns.length === 0}
           className="h-12 w-full text-base md:h-11 md:w-auto"
         >
           {pending ? 'Posting…' : 'Post exchange'}

@@ -30,13 +30,21 @@ export const customerService = {
   },
 
   /**
-   * Quick Sale: find by normalized phone or create a named customer for marketing DB.
+   * Quick Sale: system walk-in, or find by phone / create named customer.
    * Never attaches to the system walk-in row when phone is captured.
    */
   async findOrCreateForQuickSale(
     user: SessionUser,
-    input: { name: string; phone: string },
+    input: { name: string; phone: string; useWalkIn?: boolean },
   ) {
+    if (input.useWalkIn) {
+      const walkIn = await customerRepository.findWalkIn(user.organizationId);
+      if (!walkIn) {
+        throw new BusinessRuleError('Walk-in customer is not configured');
+      }
+      return walkIn;
+    }
+
     const phone = input.phone.trim();
     const name = input.name.trim();
     if (!phone || !name) {

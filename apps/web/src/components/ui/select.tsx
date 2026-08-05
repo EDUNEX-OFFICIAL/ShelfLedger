@@ -66,6 +66,21 @@ function rankFiltered(options: SelectOption[], q: string) {
   return [...exact, ...rest];
 }
 
+/** Exact barcode / SKU token match (scanner Enter). */
+function findExactKeywordMatch(options: SelectOption[], raw: string): SelectOption | null {
+  const needle = raw.trim().toLowerCase();
+  if (!needle) return null;
+  for (const o of options) {
+    if (o.disabled) continue;
+    const kw = (o.keywords ?? '').toLowerCase().trim();
+    if (!kw) continue;
+    if (kw === needle) return o;
+    const tokens = kw.split(/\s+/).filter(Boolean);
+    if (tokens.some((t) => t === needle)) return o;
+  }
+  return null;
+}
+
 export function Select({
   id,
   value,
@@ -312,6 +327,23 @@ function SearchableSelect({
     setOpen(false);
   };
 
+  const pickFromQueryOrActive = () => {
+    const exact = findExactKeywordMatch(options, query);
+    if (exact) {
+      pick(exact.value);
+      return;
+    }
+    if (filtered.length === 1) {
+      const only = filtered[0];
+      if (only && !only.disabled) {
+        pick(only.value);
+        return;
+      }
+    }
+    const opt = filtered[activeIndex];
+    if (opt && !opt.disabled) pick(opt.value);
+  };
+
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'ArrowDown') {
       e.preventDefault();
@@ -321,11 +353,25 @@ function SearchableSelect({
       setActiveIndex((i) => Math.max(i - 1, 0));
     } else if (e.key === 'Enter') {
       e.preventDefault();
-      const opt = filtered[activeIndex];
-      if (opt && !opt.disabled) pick(opt.value);
+      pickFromQueryOrActive();
     } else if (e.key === 'Escape') {
       e.preventDefault();
       setOpen(false);
+    }
+  };
+
+  const onTriggerKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (disabled) return;
+    if (e.key === 'Enter' || e.key === ' ') return;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      setOpen(true);
+      return;
+    }
+    if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      e.preventDefault();
+      setQuery(e.key);
+      setOpen(true);
     }
   };
 
@@ -361,6 +407,7 @@ function SearchableSelect({
             aria-expanded={open}
             aria-haspopup="listbox"
             aria-required={required}
+            onKeyDown={onTriggerKeyDown}
             className={cn(
               'flex h-10 w-full items-center justify-between gap-2 rounded-lg border border-border/80 bg-card px-3 text-left text-sm shadow-sm outline-none transition',
               'hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
@@ -408,6 +455,7 @@ function SearchableSelect({
                 ref={inputRef}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={onKeyDown}
                 placeholder="Search…"
                 className="h-8 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
                 aria-label="Filter options"

@@ -178,7 +178,7 @@ Ship intentional motions:
 
 - Design and QA counter flows at **~375px width first**, then enhance upward.
 - Primary actions: min touch target **44×44px**; prefer full-width buttons on small screens.
-- Sale punch (**Quick Sale**): mobile — customer → SKU lines → payment/total → sticky **Punch sale**; `lg+` — items left, sticky right rail (customer + payment + totals + punch).
+- Sale punch (**Quick Sale**): mobile — **Items first** → Who's buying? → payment/total → sticky **Punch sale**; `lg+` — items left, sticky right rail (customer + payment + totals + punch).
 - Avoid hover-only affordances; no desktop-only critical paths.
 - Safe-area aware bottom bars (`env(safe-area-inset-bottom)`) for punch CTAs.
 - Desktop may add keyboard shortcuts and denser tables; never remove the mobile path.
@@ -187,9 +187,13 @@ Ship intentional motions:
 
 - Width: `max-w-lg` → `md:max-w-3xl` / `lg:max-w-5xl`
 - `md+` denser item rows: SKU | Qty | Price | line total (incl. GST preview) in one ticket surface
-- SKU auto-focus; selecting on last row adds next line (barcode-ready); search matches SKU + barcode keywords
+- SKU auto-focus; selecting on last row adds next line; searchable Select opens on type; Enter exact barcode/SKU pick; duplicate SKU bumps qty
+- **Walk-in chip**: uses seeded system walk-in (no name/phone); off = name+mobile required + phone lookup
+- After punch: stay on `/sales/quick` with success strip (Invoice / Print `?print=1` / WhatsApp / Next sale) — no forced navigate away
+- **Adjust**: optional bill discount (collapsed) without leaving Quick Sale
 - Phone lookup autofills name when customer exists; stock as Badge (muted / warning / destructive)
-- Shortcuts: **F2** punch · **1/2/3** Cash/UPI/Card · **+** add line (when not typing)
+- Shortcuts: **F2** punch · **1/2/3** Cash/UPI/Card · **+** add line (when not typing); last pay method remembered on device
+- Recent/frequent SKU chip strip (local punches + week top sellers)
 - Disabled Punch shows why (name / mobile / SKU); “Full draft sale” is a quiet text link
 - Look: single checkout rail card; hero total; filled primary payment chips + icons; stronger Punch + spinner / Posted flash; mobile sticky mini total strip; `animate-qs-row-in` / `animate-qs-punch-ok`
 
@@ -197,7 +201,7 @@ Ship intentional motions:
 
 | Mode | When | Screen |
 |------|------|--------|
-| **Quick Sale** (`/sales/quick`) | Walk-in, 1–few lines, paid now | Mobile-first punch; create+post one tap |
+| **Quick Sale** (`/sales/quick`) | Walk-in or named+phone, 1–few lines, paid now | Mobile-first punch; create+post one tap; stay for next bill |
 | **Draft sale** (`/sales#new-draft`) | Overrides, unpaid/partial, heavy edits | List-first page; form below; Post from list |
 
 ### Sales list page (`/sales`)
@@ -212,13 +216,14 @@ Primary job: find invoices, post leftover drafts, chase open dues. Punching bill
 
 ### Purchases list page (`/purchases`)
 
-Primary job: enter a vendor bill and Post to receive stock (no separate “quick purchase”).
+Primary job: enter a vendor bill and receive stock in one action (draft still available).
 
 1. Header: **New purchase** → `#new-purchase` (form stays visible — create is core here)
 2. Quiet meta: drafts waiting to receive → `?status=DRAFT`
 3. Deep-link banner when `?status=`
 4. **All purchases** list with **vendor invoice # + bill date** (searchable) + Post / Return
-5. **New vendor bill** form below (not collapsed)
+5. **New vendor bill** form: primary **Save & receive stock** (create+post); secondary **Save draft**; last vendor (localStorage) + last unit rates autofill; tax Select behind **Tax override**
+6. Post / Return: Post confirm supports **Don’t ask again today**; Return uses multi-line checklist
 
 ### Expenses page (`/expenses`)
 
@@ -286,8 +291,10 @@ Primary job: find team + change role/active; add users occasionally.
 Primary job (mobile Exchange tab): return / size-swap against a posted invoice (create+post one shot).
 
 1. Header: **New exchange** → `#new-exchange` (form stays open — create is the tab job)
-2. Form: **Original invoice first** (searchable); customer filters invoices; return required, replace optional
-3. Recent list: invoice link, date, **difference** with pay / refund / even hint
+2. Form: **Original invoice first** (searchable); customer filters invoices
+3. **Return checklist**: each invoice line with checkbox + qty (max = sold); **Return all**; at least one checked required
+4. **Live Δ** hero: Collect / Refund / Even (replace − return, incl. GST) before Post
+5. Deep link: `/exchanges?sale=` from invoice **Exchange / return**; replacement lines optional; recent list shows difference
 
 ### Customers page (`/customers`)
 
