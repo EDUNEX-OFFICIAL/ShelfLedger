@@ -5,6 +5,7 @@ import {
   customerCreateSchema,
   saleCreateSchema,
   quickSaleSchema,
+  saleAddPaymentSchema,
   exchangeCreateSchema,
   normalizeCustomerPhone,
 } from '@shelfledger/validators';
@@ -143,6 +144,31 @@ export async function createAndPostQuickSaleAction(
       invoiceNo: sale.invoiceNo,
       totalAmount: Number(sale.totalAmount),
       customerPhone: customer.isWalkIn ? null : customer.phone,
+    });
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+export async function addSalePaymentAction(
+  input: unknown,
+): Promise<
+  ActionResult<{ id: string; paymentStatus: string; paidAmount: number; dueAmount: number }>
+> {
+  try {
+    const user = await requireSell();
+    const data = saleAddPaymentSchema.parse(input);
+    const sale = await saleService.addPayment(user, data);
+    const paidAmount = sale.payments.reduce((s, p) => s + Number(p.amount), 0);
+    const dueAmount = Math.max(0, Number(sale.totalAmount) - paidAmount);
+    revalidatePath('/sales');
+    revalidatePath(`/sales/${sale.id}/invoice`);
+    revalidatePath('/dashboard');
+    return ok({
+      id: sale.id,
+      paymentStatus: sale.paymentStatus,
+      paidAmount,
+      dueAmount,
     });
   } catch (error) {
     return fail(error);

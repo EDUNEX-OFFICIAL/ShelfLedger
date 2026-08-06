@@ -1,8 +1,8 @@
 # AI Memory — ShelfLedger
 
-**Current Phase:** Phase 6.1 + P0–P2 ops speed  
+**Current Phase:** Phase 6.1 + P0–P3 ops speed (V1 complete; Phase 7+ gated by decisions below)  
 **Path:** `/srv/ShelfLedger`  
-**Last Updated:** 2026-08-05
+**Last Updated:** 2026-08-06
 
 ## Completed
 
@@ -79,10 +79,33 @@
 - **P0 ops speed:** Walk-in skip; barcode wedge path; stay-after-punch; purchase **Save & receive stock** (create+post); exchange return checklist + Return all
 - **P1 ops speed:** Exchange live Collect/Refund Δ; Quick Sale items-first + Adjust discount; purchase last vendor/rates; draft Pay full + live totals; invoice → Exchange deep link
 - **P2 ops speed:** Remember pay method; tax override collapsed; multi-line purchase return; recent/frequent SKU chips; Post confirm “Don’t ask again today”
+- **P3 async SKU:** `searchVariants` / `AsyncSkuCombobox` — debounced server typeahead (SKU/barcode/name); Quick Sale no longer hydrates full catalog; draft sale / purchase / exchange / inventory pickers same
+- **S1–S6 ops (no barcode):** Punch & Print dual CTA; F2/⇧F2/F3/Esc desktop shortcuts; article → size/colour matrix (touch sheet); recent article chips; Counter/kiosk chrome hide; Collect payment on open dues
+- **Mobile Quick Sale flow:** single fluid surface (items + buyer/pay strip + sticky Punch) — not step wizard; Walk-in default (remembered); Save contact expands name/phone only when needed; lg breakpoint mounts one checkout tree (no duplicate fields)
 
 ## Pending / follow-ups
 
-- Phase 7+ optional: barcode camera/printing, async SKU typeahead at scale, multi-branch UI, IGST (not requested)
+### Explicitly not doing (for now)
+
+- **Barcode** scanning / label printing / camera scan — **NO**
+- **Multi-branch** UI / warehouse — **NO**
+- **WhatsApp Business API** — **NO** (keep invoice `wa.me` share only)
+- **Accounting** (COA / journals) — **NO**
+- **Native mobile app** — not required while responsive web is primary
+- **Offline billing queue** — not unless burn-in proves need
+
+### Undecided
+
+- **Phase 11** Advanced GST (IGST, e-invoice / e-way) + procurement (PO/GRN) — stakeholder has no clear ask yet; do not start without a written decision
+
+### Deferred to the very end
+
+- **Phase 12 Multi-tenant SaaS** — productize beyond single-retailer VPS **only after** everything else we choose to ship; keep this last
+
+### Still open (ops / polish)
+
+- Commit + push P3 async SKU if not on remote yet
+- Shop burn-in / feedback on counter flows
 
 ## Never Forget
 

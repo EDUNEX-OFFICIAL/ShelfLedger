@@ -117,6 +117,7 @@ Avoid neon glow or multi-layer dramatic shadows.
 
 - Shared `components/ui/select.tsx` (Radix Select + searchable Popover combobox)
 - Short lists: custom dropdown; long lists (≥8 or `searchable`): typeahead
+- **Item codes / SKUs:** `AsyncSkuCombobox` — server debounced search (do not hydrate full catalog into Select)
 - Do not use native `<select>` in app UI
 
 ## 6. Radius
@@ -178,7 +179,7 @@ Ship intentional motions:
 
 - Design and QA counter flows at **~375px width first**, then enhance upward.
 - Primary actions: min touch target **44×44px**; prefer full-width buttons on small screens.
-- Sale punch (**Quick Sale**): mobile — **Items first** → Who's buying? → payment/total → sticky **Punch sale**; `lg+` — items left, sticky right rail (customer + payment + totals + punch).
+- Sale punch (**Quick Sale**): mobile — **one fluid counter surface** (items + live buyer/pay strip + sticky Punch). Not a step wizard. Default **Walk-in**; “Save contact” expands name/phone only when needed. `lg+` — items left, sticky right rail.
 - Avoid hover-only affordances; no desktop-only critical paths.
 - Safe-area aware bottom bars (`env(safe-area-inset-bottom)`) for punch CTAs.
 - Desktop may add keyboard shortcuts and denser tables; never remove the mobile path.
@@ -187,15 +188,18 @@ Ship intentional motions:
 
 - Width: `max-w-lg` → `md:max-w-3xl` / `lg:max-w-5xl`
 - `md+` denser item rows: SKU | Qty | Price | line total (incl. GST preview) in one ticket surface
-- SKU auto-focus; selecting on last row adds next line; searchable Select opens on type; Enter exact barcode/SKU pick; duplicate SKU bumps qty
-- **Walk-in chip**: uses seeded system walk-in (no name/phone); off = name+mobile required + phone lookup
+- SKU auto-focus; selecting on last row adds next line; **AsyncSkuCombobox** (debounced server search); Enter exact barcode/SKU pick; duplicate SKU bumps qty
+- Seed options = recent/frequent only — no full-catalog hydrate on page load
+- **Walk-in chip**: default on (remembered); **Save contact** expands name+mobile inline — no wizard steps
 - After punch: stay on `/sales/quick` with success strip (Invoice / Print `?print=1` / WhatsApp / Next sale) — no forced navigate away
-- **Adjust**: optional bill discount (collapsed) without leaving Quick Sale
+- **Adjust** / Discount: optional, collapsed
 - Phone lookup autofills name when customer exists; stock as Badge (muted / warning / destructive)
-- Shortcuts: **F2** punch · **1/2/3** Cash/UPI/Card · **+** add line (when not typing); last pay method remembered on device
-- Recent/frequent SKU chip strip (local punches + week top sellers)
-- Disabled Punch shows why (name / mobile / SKU); “Full draft sale” is a quiet text link
-- Look: single checkout rail card; hero total; filled primary payment chips + icons; stronger Punch + spinner / Posted flash; mobile sticky mini total strip; `animate-qs-row-in` / `animate-qs-punch-ok`
+- Shortcuts: **F2** punch · **⇧F2** punch & print · **F3** focus item · **Esc** clear cart · **1/2/3** Cash/UPI/Card · **+** add line (desktop progressive; mobile uses big touch CTAs)
+- **Size** opens article → size/colour matrix (primary footwear pick path; no barcode)
+- Article chips (recent/frequent) open matrix; item-code chips still bump qty
+- **Counter mode** toggle hides sidebar/topbar/bottom nav (kiosk)
+- Dual sticky CTA: **Punch** + **Print** (punch & print)
+- Mobile checkout: buyer mode + pay chips in one strip under items (dynamic fields only when “Save contact”)
 
 ### Quick Sale vs full draft form
 

@@ -4,7 +4,6 @@ import { canManageInventory } from '@shelfledger/db';
 import { requireSession } from '@/server/auth/guards';
 import { purchaseService } from '@/server/services/purchase';
 import { masterService } from '@/server/services/masters';
-import { inventoryService } from '@/server/services/inventory';
 import { PageHeader } from '@/components/shared/page-header';
 import { SectionHeader } from '@/components/shared/section-header';
 import { buttonClassName } from '@/components/ui/button';
@@ -28,10 +27,9 @@ export default async function PurchasesPage({
   const status =
     params.status === 'DRAFT' || params.status === 'POSTED' ? params.status : undefined;
 
-  const [purchases, vendors, variants, taxRates] = await Promise.all([
+  const [purchases, vendors, taxRates] = await Promise.all([
     purchaseService.list(user),
     masterService.listVendors(user),
-    inventoryService.listVariants(user),
     masterService.listTaxRates(user),
   ]);
 
@@ -122,10 +120,6 @@ export default async function PurchasesPage({
           <PurchaseForm
             canWrite={canWrite}
             vendors={vendors.map((v) => ({ id: v.id, label: v.name }))}
-            variants={variants.map((v) => ({
-              id: v.id,
-              label: `${v.sku} — ${v.article.name} (${v.size}/${v.color})`,
-            }))}
             taxRates={taxRates.map((t) => ({ id: t.id, label: t.name }))}
             lastRatesByVendor={lastRatesByVendor}
           />

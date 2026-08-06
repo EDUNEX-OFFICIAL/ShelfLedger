@@ -1,11 +1,11 @@
 'use client';
 
-import Link from 'next/link';
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
+import { AsyncSkuCombobox } from '@/components/ui/async-sku-combobox';
 import { FormField } from '@/components/shared/form-field';
 import { SurfaceCard } from '@/components/shared/surface-card';
 import {
@@ -15,8 +15,6 @@ import {
 import { openingStockAction, stockAdjustmentAction } from '@/features/inventory/actions';
 import { cn } from '@/lib/utils';
 
-type Option = { id: string; label: string };
-
 const DIRECTION_OPTIONS = [
   { value: 'IN', label: 'Adjustment in' },
   { value: 'OUT', label: 'Adjustment out' },
@@ -24,13 +22,7 @@ const DIRECTION_OPTIONS = [
   { value: 'LOST', label: 'Lost' },
 ] as const;
 
-export function OpeningStockForm({
-  canWrite,
-  variants,
-}: {
-  canWrite: boolean;
-  variants: Option[];
-}) {
+export function OpeningStockForm({ canWrite }: { canWrite: boolean }) {
   const router = useRouter();
   const [variantId, setVariantId] = useState('');
   const [qty, setQty] = useState('1');
@@ -40,8 +32,6 @@ export function OpeningStockForm({
   const [pending, startTransition] = useTransition();
 
   if (!canWrite) return null;
-
-  const blocked = variants.length === 0;
 
   return (
     <form
@@ -71,24 +61,14 @@ export function OpeningStockForm({
     >
       <SurfaceCard padding="none" className="overflow-hidden">
         <div className="space-y-5 p-5">
-          {blocked ? (
-            <div className="space-y-2 rounded-lg border border-dashed border-border/80 bg-muted/30 px-3 py-2.5 text-sm text-muted-foreground">
-              <p>Create size & colour (item codes) before posting starting stock.</p>
-              <Link href="/articles" className="font-semibold text-primary hover:underline">
-                Go to Articles
-              </Link>
-            </div>
-          ) : null}
           <div className="grid gap-4 lg:grid-cols-5">
             <FormField id="open-var" label="Size & colour" required className="lg:col-span-2">
-              <Select
+              <AsyncSkuCombobox
                 id="open-var"
                 value={variantId}
                 onValueChange={setVariantId}
-                placeholder="Select item code"
+                placeholder="Search item code…"
                 required
-                searchable
-                options={variants.map((v) => ({ value: v.id, label: v.label }))}
               />
             </FormField>
             <FormField id="open-qty" label="Qty" required>
@@ -140,7 +120,7 @@ export function OpeningStockForm({
         <Button
           type="submit"
           size="lg"
-          disabled={pending || blocked}
+          disabled={pending}
           className="h-12 w-full text-base md:h-11 md:w-auto"
         >
           {pending ? 'Saving…' : 'Save starting stock'}
@@ -150,13 +130,7 @@ export function OpeningStockForm({
   );
 }
 
-export function AdjustmentForm({
-  canWrite,
-  variants,
-}: {
-  canWrite: boolean;
-  variants: Option[];
-}) {
+export function AdjustmentForm({ canWrite }: { canWrite: boolean }) {
   const router = useRouter();
   const [variantId, setVariantId] = useState('');
   const [qty, setQty] = useState('1');
@@ -166,8 +140,6 @@ export function AdjustmentForm({
   const [pending, startTransition] = useTransition();
 
   if (!canWrite) return null;
-
-  const blocked = variants.length === 0;
 
   return (
     <form
@@ -194,24 +166,14 @@ export function AdjustmentForm({
     >
       <SurfaceCard padding="none" className="overflow-hidden">
         <div className="space-y-5 p-5">
-          {blocked ? (
-            <div className="space-y-2 rounded-lg border border-dashed border-border/80 bg-muted/30 px-3 py-2.5 text-sm text-muted-foreground">
-              <p>Create size & colour (item codes) before posting adjustments.</p>
-              <Link href="/articles" className="font-semibold text-primary hover:underline">
-                Go to Articles
-              </Link>
-            </div>
-          ) : null}
           <div className="grid gap-4 lg:grid-cols-5">
             <FormField id="adj-var" label="Size & colour" required className="lg:col-span-2">
-              <Select
+              <AsyncSkuCombobox
                 id="adj-var"
                 value={variantId}
                 onValueChange={setVariantId}
-                placeholder="Select item code"
+                placeholder="Search item code…"
                 required
-                searchable
-                options={variants.map((v) => ({ value: v.id, label: v.label }))}
               />
             </FormField>
             <FormField id="adj-dir" label="Type" required>
@@ -268,7 +230,7 @@ export function AdjustmentForm({
         <Button
           type="submit"
           size="lg"
-          disabled={pending || blocked}
+          disabled={pending}
           className="h-12 w-full text-base md:h-11 md:w-auto"
         >
           {pending ? 'Posting…' : 'Post adjustment'}

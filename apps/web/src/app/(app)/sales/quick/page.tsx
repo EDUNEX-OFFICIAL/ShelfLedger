@@ -1,7 +1,6 @@
 import Link from 'next/link';
-import { canSell } from '@shelfledger/db';
+import { canSell, searchRepository } from '@shelfledger/db';
 import { requireSession } from '@/server/auth/guards';
-import { inventoryService } from '@/server/services/inventory';
 import { saleService } from '@/server/services/sale';
 import { PageHeader } from '@/components/shared/page-header';
 import { QuickSaleForm } from '@/features/sales/quick-sale-form';
@@ -13,22 +12,11 @@ function startOfLocalDay(d = new Date()) {
 export default async function QuickSalePage() {
   const user = await requireSession();
   const canWrite = canSell(user.role);
-  const [variants, balances, sales] = await Promise.all([
-    inventoryService.listVariants(user),
-    inventoryService.listBalances(user),
-    saleService.list(user),
-  ]);
-
-  const onHandByVariant = new Map<string, number>();
-  for (const b of balances) {
-    onHandByVariant.set(
-      b.variantId,
-      (onHandByVariant.get(b.variantId) ?? 0) + Number(b.quantity),
-    );
-  }
+  const sales = await saleService.list(user);
 
   const weekAgo = new Date(startOfLocalDay().getTime() - 7 * 24 * 60 * 60 * 1000);
   const qtyByVariant = new Map<string, number>();
+  const qtyByArticle = new Map<string, number>();
   for (const sale of sales) {
     if (sale.status !== 'POSTED') continue;
     const when = sale.invoiceDate ? new Date(sale.invoiceDate) : null;
@@ -38,18 +26,34 @@ export default async function QuickSalePage() {
         line.variantId,
         (qtyByVariant.get(line.variantId) ?? 0) + Number(line.qty),
       );
+      const articleId = line.variant.articleId;
+      if (articleId) {
+        qtyByArticle.set(
+          articleId,
+          (qtyByArticle.get(articleId) ?? 0) + Number(line.qty),
+        );
+      }
     }
   }
   const frequentVariantIds = [...qtyByVariant.entries()]
     .sort((a, b) => b[1] - a[1])
     .slice(0, 8)
     .map(([id]) => id);
+  const frequentArticleIds = [...qtyByArticle.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8)
+    .map(([id]) => id);
+
+  const [seedVariants, seedArticles] = await Promise.all([
+    searchRepository.variantsByIds(user.organizationId, frequentVariantIds),
+    searchRepository.articlesByIds(user.organizationId, frequentArticleIds),
+  ]);
 
   return (
-    <div className="mx-auto max-w-lg space-y-6 md:max-w-3xl lg:max-w-5xl">
+    <div className="mx-auto max-w-lg space-y-4 md:max-w-3xl md:space-y-6 lg:max-w-5xl">
       <PageHeader
         title="Quick Sale"
-        description="Scan items first — Walk-in or name + mobile, then punch."
+        description="Add items — Walk-in by default. Punch when ready. Print optional."
         actions={
           <Link
             href="/sales#new-draft"
@@ -62,16 +66,9 @@ export default async function QuickSalePage() {
       <QuickSaleForm
         canWrite={canWrite}
         frequentVariantIds={frequentVariantIds}
-        variants={variants.map((v) => ({
-          id: v.id,
-          sku: v.sku,
-          barcode: v.barcode,
-          label: `${v.sku} — ${v.article.name} (${v.size}/${v.color})`,
-          sellingPrice: Number(v.sellingPrice),
-          cgstRate: v.article.defaultTaxRate ? Number(v.article.defaultTaxRate.cgstRate) : 0,
-          sgstRate: v.article.defaultTaxRate ? Number(v.article.defaultTaxRate.sgstRate) : 0,
-          onHandQty: onHandByVariant.get(v.id) ?? 0,
-        }))}
+        frequentArticleIds={frequentArticleIds}
+        seedVariants={seedVariants}
+        seedArticles={seedArticles}
       />
     </div>
   );

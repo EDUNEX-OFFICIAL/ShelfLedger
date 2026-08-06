@@ -5,7 +5,6 @@ import { requireSession } from '@/server/auth/guards';
 import { saleService } from '@/server/services/sale';
 import { customerService } from '@/server/services/customer';
 import { masterService } from '@/server/services/masters';
-import { inventoryService } from '@/server/services/inventory';
 import { PageHeader } from '@/components/shared/page-header';
 import { SectionHeader } from '@/components/shared/section-header';
 import { buttonClassName } from '@/components/ui/button';
@@ -43,10 +42,9 @@ export default async function SalesPage({
   const status =
     params.status === 'DRAFT' || params.status === 'POSTED' ? params.status : undefined;
 
-  const [sales, customers, variants, taxRates] = await Promise.all([
+  const [sales, customers, taxRates] = await Promise.all([
     saleService.list(user),
     customerService.list(user),
-    inventoryService.listVariants(user),
     masterService.listTaxRates(user),
   ]);
 
@@ -123,15 +121,21 @@ export default async function SalesPage({
           canWrite={canWrite}
           initialPayment={payment}
           initialStatus={status}
-          rows={sales.map((sale) => ({
-            id: sale.id,
-            invoiceLabel: sale.status === 'DRAFT' ? 'DRAFT' : sale.invoiceNo,
-            customerName: sale.customer.name,
-            status: sale.status,
-            paymentStatus: sale.paymentStatus,
-            totalAmount: Number(sale.totalAmount),
-            invoiceDate: sale.invoiceDate,
-          }))}
+          rows={sales.map((sale) => {
+            const totalAmount = Number(sale.totalAmount);
+            const paid = sale.payments.reduce((s, p) => s + Number(p.amount), 0);
+            const dueAmount = Math.max(0, totalAmount - paid);
+            return {
+              id: sale.id,
+              invoiceLabel: sale.status === 'DRAFT' ? 'DRAFT' : sale.invoiceNo,
+              customerName: sale.customer.name,
+              status: sale.status,
+              paymentStatus: sale.paymentStatus,
+              totalAmount,
+              dueAmount,
+              invoiceDate: sale.invoiceDate,
+            };
+          })}
         />
       </section>
 
@@ -146,17 +150,6 @@ export default async function SalesPage({
             customers={customers.map((c) => ({
               id: c.id,
               label: c.isWalkIn ? `${c.name} (walk-in)` : c.name,
-            }))}
-            variants={variants.map((v) => ({
-              id: v.id,
-              label: `${v.sku} — ${v.article.name} (${v.size}/${v.color})`,
-              sellingPrice: Number(v.sellingPrice),
-              cgstRate: v.article.defaultTaxRate
-                ? Number(v.article.defaultTaxRate.cgstRate)
-                : 0,
-              sgstRate: v.article.defaultTaxRate
-                ? Number(v.article.defaultTaxRate.sgstRate)
-                : 0,
             }))}
             taxRates={taxRates.map((t) => ({
               id: t.id,

@@ -22,16 +22,7 @@ export default async function InventoryPage({
   const initialStock =
     params.stock === 'low' || params.stock === 'ok' ? params.stock : undefined;
 
-  const [balances, variants] = await Promise.all([
-    inventoryService.listBalances(user),
-    inventoryService.listVariants(user),
-  ]);
-
-  const options = variants.map((v) => ({
-    id: v.id,
-    label: `${v.sku} — ${v.article.name} (${v.size}/${v.color})`,
-  }));
-
+  const balances = await inventoryService.listBalances(user);
   let stockValue = 0;
   let lowCount = 0;
   const rows = balances.map((b) => {
@@ -152,7 +143,7 @@ export default async function InventoryPage({
             title="Starting stock"
             description="First-time qty + unit cost for an item code. Saved in stock history."
           >
-            <OpeningStockForm canWrite={canWrite} variants={options} />
+            <OpeningStockForm canWrite={canWrite} />
           </InventoryActionPanel>
 
           <InventoryActionPanel
@@ -160,7 +151,7 @@ export default async function InventoryPage({
             title="Adjustments"
             description="In, out, damage, or lost — reason required. Always saved in stock history."
           >
-            <AdjustmentForm canWrite={canWrite} variants={options} />
+            <AdjustmentForm canWrite={canWrite} />
           </InventoryActionPanel>
         </>
       ) : null}

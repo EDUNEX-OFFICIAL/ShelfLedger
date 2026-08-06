@@ -237,6 +237,14 @@ export const quickSaleSchema = z
     customerPhone: data.useWalkIn ? '' : normalizeCustomerPhone(data.customerPhone),
   }));
 
+/** Record a payment against a posted sale with open dues. */
+export const saleAddPaymentSchema = z.object({
+  saleId: z.string().uuid(),
+  method: paymentMethodSchema,
+  amount: z.coerce.number().positive().max(1_000_000),
+  reference: z.string().trim().max(120).optional().or(z.literal('')),
+});
+
 export const exchangeReturnLineSchema = z.object({
   originalSaleLineId: z.string().uuid(),
   qty: z.coerce.number().positive().max(1_000_000),

@@ -335,4 +335,65 @@ export const saleService = {
 
     return this.post(user, draft.id);
   },
+
+  /** Collect payment on a posted sale (UNPAID / PARTIAL). Soft-appends SalePayment. */
+  async addPayment(
+    user: SessionUser,
+    input: { saleId: string; method: 'CASH' | 'UPI' | 'CARD' | 'OTHER'; amount: number; reference?: string },
+  ) {
+    return prisma.$transaction(async (tx) => {
+      const sale = await tx.sale.findFirst({
+        where: {
+          id: input.saleId,
+          organizationId: user.organizationId,
+          deletedAt: null,
+        },
+        include: {
+          payments: { where: { deletedAt: null } },
+        },
+      });
+      if (!sale) throw new NotFoundError('Sale not found');
+      if (sale.status !== 'POSTED') {
+        throw new BusinessRuleError('Only posted sales can collect payment');
+      }
+
+      const total = Number(sale.totalAmount);
+      const alreadyPaid = roundMoney(
+        sale.payments.reduce((s, p) => s + Number(p.amount), 0),
+      );
+      const due = roundMoney(total - alreadyPaid);
+      if (due <= 0.001) {
+        throw new BusinessRuleError('Sale is already paid in full');
+      }
+
+      const amount = roundMoney(input.amount);
+      if (amount > due + 0.001) {
+        throw new ValidationError('Payment exceeds amount due');
+      }
+
+      await tx.salePayment.create({
+        data: {
+          saleId: sale.id,
+          method: input.method,
+          amount,
+          reference: emptyToNull(input.reference),
+          createdBy: user.id,
+          updatedBy: user.id,
+        },
+      });
+
+      const newPaid = roundMoney(alreadyPaid + amount);
+      return tx.sale.update({
+        where: { id: sale.id },
+        data: {
+          paymentStatus: paymentStatus(total, newPaid),
+          updatedBy: user.id,
+        },
+        include: {
+          payments: { where: { deletedAt: null } },
+          customer: true,
+        },
+      });
+    });
+  },
 };

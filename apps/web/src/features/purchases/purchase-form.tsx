@@ -5,6 +5,7 @@ import { useEffect, useState, useTransition } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
+import { AsyncSkuCombobox } from '@/components/ui/async-sku-combobox';
 import { Textarea } from '@/components/ui/textarea';
 import { FormField } from '@/components/shared/form-field';
 import { SurfaceCard } from '@/components/shared/surface-card';
@@ -40,13 +41,11 @@ const emptyLine = (): Line => ({
 export function PurchaseForm({
   canWrite,
   vendors,
-  variants,
   taxRates,
   lastRatesByVendor = {},
 }: {
   canWrite: boolean;
   vendors: Option[];
-  variants: Option[];
   taxRates: Option[];
   lastRatesByVendor?: Record<string, Record<string, number>>;
 }) {
@@ -74,7 +73,7 @@ export function PurchaseForm({
 
   if (!canWrite) return null;
 
-  const blocked = vendors.length === 0 || variants.length === 0;
+  const blocked = vendors.length === 0;
   const vendorRates = vendorId ? (lastRatesByVendor[vendorId] ?? {}) : {};
 
   const buildPayload = () => ({
@@ -151,21 +150,11 @@ export function PurchaseForm({
         <div className="space-y-5 p-5">
           {blocked ? (
             <div className="space-y-2 rounded-lg border border-dashed border-border/80 bg-muted/30 px-3 py-2.5 text-sm text-muted-foreground">
-              <p>
-                {vendors.length === 0
-                  ? 'Add a vendor before creating a purchase.'
-                  : 'Add size & colour (item codes) before creating a purchase.'}
-              </p>
+              <p>Add a vendor before creating a purchase.</p>
               <div className="flex flex-wrap gap-2">
-                {vendors.length === 0 ? (
-                  <Link href="/vendors" className="font-semibold text-primary hover:underline">
-                    Go to Vendors
-                  </Link>
-                ) : (
-                  <Link href="/articles" className="font-semibold text-primary hover:underline">
-                    Go to Articles
-                  </Link>
-                )}
+                <Link href="/vendors" className="font-semibold text-primary hover:underline">
+                  Go to Vendors
+                </Link>
               </div>
             </div>
           ) : null}
@@ -239,14 +228,12 @@ export function PurchaseForm({
                   required
                   className="lg:col-span-2"
                 >
-                  <Select
+                  <AsyncSkuCombobox
                     id={`po-var-${index}`}
                     value={line.variantId}
                     onValueChange={(variantId) => setLineVariant(index, variantId)}
-                    placeholder="Select item code"
+                    placeholder="Search item code…"
                     required
-                    searchable
-                    options={variants.map((v) => ({ value: v.id, label: v.label }))}
                   />
                 </FormField>
                 <FormField id={`po-qty-${index}`} label="Qty" required>

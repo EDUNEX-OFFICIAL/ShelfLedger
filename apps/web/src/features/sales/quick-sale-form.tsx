@@ -6,10 +6,13 @@ import {
   Banknote,
   Check,
   CreditCard,
+  Expand,
+  Grid2x2,
   Loader2,
   Minus,
   Plus,
   Printer,
+  Shrink,
   Smartphone,
   Trash2,
 } from 'lucide-react';
@@ -26,37 +29,68 @@ import { Button, buttonClassName } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select } from '@/components/ui/select';
+import {
+  AsyncSkuCombobox,
+  type AsyncSkuHit,
+  type AsyncSkuOption,
+} from '@/components/ui/async-sku-combobox';
 import { SurfaceCard } from '@/components/shared/surface-card';
 import { MoneyText } from '@/components/shared/money-text';
+import { ConfirmDialog } from '@/components/shared/confirm-dialog';
 import {
   StickyFormActions,
-  stickyFormPadTallClass,
+  stickyFormPadDualClass,
+  stickyFormPadDualKioskClass,
 } from '@/components/shared/sticky-form-actions';
 import { WhatsAppIcon } from '@/components/icons/whatsapp-icon';
+import { useOptionalAppShell } from '@/components/layout/app-shell';
 import {
   createAndPostQuickSaleAction,
   lookupCustomerByPhoneAction,
 } from '@/features/sales/actions';
+import { ArticleMatrixPicker } from '@/features/sales/article-matrix-picker';
+import {
+  articlesByIdsAction,
+  variantsByIdsAction,
+} from '@/features/search/actions';
 import {
   OPS_KEYS,
+  pushRecentArticleIds,
   pushRecentSkuIds,
   readLocal,
+  readRecentArticleIds,
   readRecentSkuIds,
   writeLocal,
 } from '@/lib/ops-prefs';
+import { useIsLgUp } from '@/lib/use-media-query';
 import { cn } from '@/lib/utils';
 
-type VariantOption = {
+type VariantOption = AsyncSkuHit;
+
+type ArticleChip = {
   id: string;
-  sku: string;
-  barcode: string | null;
-  label: string;
-  sellingPrice: number;
-  cgstRate: number;
-  sgstRate: number;
-  onHandQty: number;
+  name: string;
+  articleCode: string;
+  brandName: string | null;
 };
+
+function mergeCatalog(
+  prev: Map<string, VariantOption>,
+  hits: VariantOption[],
+): Map<string, VariantOption> {
+  if (hits.length === 0) return prev;
+  const next = new Map(prev);
+  for (const h of hits) next.set(h.id, h);
+  return next;
+}
+
+function toSeedOption(v: VariantOption): AsyncSkuOption {
+  return {
+    value: v.id,
+    label: v.label,
+    keywords: [v.sku, v.barcode].filter(Boolean).join(' ').toLowerCase(),
+  };
+}
 
 type Line = {
   id: string;
@@ -92,10 +126,10 @@ function prefersReducedMotion() {
 
 function lineEstimate(
   line: Line,
-  variants: VariantOption[],
+  catalog: Map<string, VariantOption>,
 ): { taxable: number; tax: number; total: number } | null {
   if (!line.variantId) return null;
-  const v = variants.find((x) => x.id === line.variantId);
+  const v = catalog.get(line.variantId);
   if (!v) return null;
   const qty = Number(line.qty) || 0;
   const unitPrice = Number(line.unitPrice) || 0;
@@ -115,7 +149,7 @@ function lineEstimate(
 
 function estimateTotal(
   lines: Line[],
-  variants: VariantOption[],
+  catalog: Map<string, VariantOption>,
   billDiscount = 0,
 ): { subtotal: number; tax: number; roundOff: number; total: number; discount: number } {
   const ready = lines.filter(
@@ -124,7 +158,7 @@ function estimateTotal(
   const grosses: number[] = [];
   const metas: Array<{ cgstRate: number; sgstRate: number }> = [];
   for (const line of ready) {
-    const v = variants.find((x) => x.id === line.variantId);
+    const v = catalog.get(line.variantId);
     if (!v) continue;
     const qty = Number(line.qty) || 0;
     const unitPrice = Number(line.unitPrice) || 0;
@@ -174,17 +208,28 @@ function HotkeyBadge({ children }: { children: string }) {
 
 export function QuickSaleForm({
   canWrite,
-  variants,
+  seedVariants = [],
   frequentVariantIds = [],
+  frequentArticleIds = [],
+  seedArticles = [],
 }: {
   canWrite: boolean;
-  variants: VariantOption[];
+  /** Server-resolved frequent / seed SKUs (not full catalog). */
+  seedVariants?: VariantOption[];
   /** Top SKUs sold recently (server); merged with local recent punches. */
   frequentVariantIds?: string[];
+  /** Top articles from recent sales (server). */
+  frequentArticleIds?: string[];
+  seedArticles?: ArticleChip[];
 }) {
+  const shell = useOptionalAppShell();
+  const kiosk = shell?.kiosk ?? false;
+  const isLgUp = useIsLgUp();
   const formRef = useRef<HTMLFormElement>(null);
   const skuTriggerRefs = useRef<(HTMLButtonElement | null)[]>([]);
-  const [useWalkIn, setUseWalkIn] = useState(false);
+  const punchIntentRef = useRef<'none' | 'print'>('none');
+  /** Counter default: walk-in (mobile-first). Named contact is opt-in. */
+  const [useWalkIn, setUseWalkIn] = useState(true);
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerMatch, setCustomerMatch] = useState<string | null>(null);
@@ -197,63 +242,154 @@ export function QuickSaleForm({
   const [punchSuccess, setPunchSuccess] = useState(false);
   const [posted, setPosted] = useState<PostedSale | null>(null);
   const [localRecentIds, setLocalRecentIds] = useState<string[]>([]);
+  const [articleChips, setArticleChips] = useState<ArticleChip[]>(() => seedArticles);
+  const [matrixOpen, setMatrixOpen] = useState(false);
+  const [matrixArticleId, setMatrixArticleId] = useState<string | null>(null);
+  const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
+  const [catalog, setCatalog] = useState<Map<string, VariantOption>>(
+    () => new Map(seedVariants.map((v) => [v.id, v])),
+  );
   const [pending, startTransition] = useTransition();
+
+  const mergeHits = (hits: VariantOption[]) => {
+    setCatalog((prev) => mergeCatalog(prev, hits));
+  };
 
   useEffect(() => {
     const saved = readLocal(OPS_KEYS.lastPayMethod);
     if (saved === 'CASH' || saved === 'UPI' || saved === 'CARD') {
       setPayMethod(saved);
     }
-    setLocalRecentIds(readRecentSkuIds(8));
-  }, []);
+    const walkPref = readLocal(OPS_KEYS.preferWalkIn);
+    if (walkPref === '0') setUseWalkIn(false);
+    else setUseWalkIn(true);
+
+    const recent = readRecentSkuIds(8);
+    setLocalRecentIds(recent);
+    const missing = recent.filter((id) => !seedVariants.some((v) => v.id === id));
+    if (missing.length > 0) {
+      void variantsByIdsAction(missing).then((hits: VariantOption[]) => {
+        if (!Array.isArray(hits) || hits.length === 0) return;
+        setCatalog((prev) => mergeCatalog(prev, hits));
+      });
+    }
+
+    const localArticles = readRecentArticleIds(8);
+    const missingArticles = localArticles.filter(
+      (id) => !seedArticles.some((a) => a.id === id),
+    );
+    if (missingArticles.length === 0) {
+      const byId = new Map(seedArticles.map((a) => [a.id, a]));
+      const order = [...localArticles, ...frequentArticleIds, ...seedArticles.map((a) => a.id)];
+      const chips: ArticleChip[] = [];
+      for (const id of order) {
+        const a = byId.get(id);
+        if (!a || chips.some((c) => c.id === a.id)) continue;
+        chips.push(a);
+        if (chips.length >= 8) break;
+      }
+      if (chips.length > 0) setArticleChips(chips);
+      return;
+    }
+    let cancelled = false;
+    void articlesByIdsAction(missingArticles).then((rows) => {
+      if (cancelled || !Array.isArray(rows)) return;
+      const merged = new Map<string, ArticleChip>();
+      for (const a of [...seedArticles, ...rows]) {
+        merged.set(a.id, {
+          id: a.id,
+          name: a.name,
+          articleCode: a.articleCode,
+          brandName: a.brandName,
+        });
+      }
+      const order = [...localArticles, ...frequentArticleIds, ...seedArticles.map((a) => a.id)];
+      const chips: ArticleChip[] = [];
+      for (const id of order) {
+        const a = merged.get(id);
+        if (!a || chips.some((c) => c.id === a.id)) continue;
+        chips.push(a);
+        if (chips.length >= 8) break;
+      }
+      setArticleChips(chips);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [seedVariants, seedArticles, frequentArticleIds]);
 
   const choosePay = (method: 'CASH' | 'UPI' | 'CARD') => {
     setPayMethod(method);
     writeLocal(OPS_KEYS.lastPayMethod, method);
   };
 
+  const setWalkInMode = (on: boolean) => {
+    setUseWalkIn(on);
+    writeLocal(OPS_KEYS.preferWalkIn, on ? '1' : '0');
+    setMessage(null);
+    if (on) {
+      setCustomerName('');
+      setCustomerPhone('');
+      setCustomerMatch(null);
+    }
+  };
+
+  const openMatrix = (articleId?: string | null) => {
+    setMatrixArticleId(articleId ?? null);
+    setMatrixOpen(true);
+  };
+
+  const clearCart = () => {
+    setLines([emptyLine()]);
+    setFocusSkuIndex(0);
+    setBillDiscount('0');
+    setShowAdjust(false);
+    setMessage(null);
+    setClearConfirmOpen(false);
+  };
+
   const quickPickIds = useMemo(() => {
     const merged: string[] = [];
     for (const id of [...localRecentIds, ...frequentVariantIds]) {
       if (!id || merged.includes(id)) continue;
-      if (!variants.some((v) => v.id === id)) continue;
+      if (!catalog.has(id)) continue;
       merged.push(id);
       if (merged.length >= 8) break;
     }
     return merged;
-  }, [localRecentIds, frequentVariantIds, variants]);
+  }, [localRecentIds, frequentVariantIds, catalog]);
 
-  const selectOptions = useMemo(
-    () =>
-      variants.map((v) => ({
-        value: v.id,
-        label: v.label,
-        keywords: [v.sku, v.barcode].filter(Boolean).join(' ').toLowerCase(),
-      })),
-    [variants],
-  );
+  const seedOptions = useMemo(() => {
+    const opts: AsyncSkuOption[] = [];
+    for (const id of quickPickIds) {
+      const v = catalog.get(id);
+      if (v) opts.push(toSeedOption(v));
+    }
+    return opts;
+  }, [quickPickIds, catalog]);
 
   const totals = useMemo(
-    () => estimateTotal(lines, variants, Number(billDiscount) || 0),
-    [lines, variants, billDiscount],
+    () => estimateTotal(lines, catalog, Number(billDiscount) || 0),
+    [lines, catalog, billDiscount],
   );
   const readyLines = lines.filter(
     (l) => l.variantId && Number(l.qty) > 0 && Number(l.unitPrice) >= 0,
   );
 
-  const blockReason = !useWalkIn && !customerName.trim()
-    ? 'Enter customer name'
+  const blockReason = readyLines.length === 0
+    ? 'Add at least one item'
     : !useWalkIn && !customerPhone.trim()
       ? 'Enter mobile number'
-      : readyLines.length === 0
-        ? 'Add at least one item code'
+      : !useWalkIn && !customerName.trim()
+        ? 'Enter customer name'
         : null;
 
   const resetFormForNext = () => {
     setCustomerName('');
     setCustomerPhone('');
     setCustomerMatch(null);
-    setUseWalkIn(false);
+    const walkPref = readLocal(OPS_KEYS.preferWalkIn);
+    setUseWalkIn(walkPref !== '0');
     setBillDiscount('0');
     setShowAdjust(false);
     setLines([emptyLine()]);
@@ -276,7 +412,7 @@ export function QuickSaleForm({
   };
 
   /** Scan / pick: bump qty if SKU already on another line; else fill/replace at index. */
-  const setLineVariant = (index: number, variantId: string) => {
+  const setLineVariant = (index: number, variantId: string, hit?: VariantOption) => {
     if (!variantId) {
       setLines((rows) =>
         rows.map((r, i) =>
@@ -285,7 +421,8 @@ export function QuickSaleForm({
       );
       return;
     }
-    const v = variants.find((x) => x.id === variantId);
+    if (hit) setCatalog((prev) => mergeCatalog(prev, [hit]));
+    const v = hit ?? catalog.get(variantId);
     if (!v) return;
 
     let nextFocus = index;
@@ -373,12 +510,32 @@ export function QuickSaleForm({
       if (e.key === 'F2') {
         e.preventDefault();
         if (!pending && !punchSuccess && !blockReason && !posted) {
+          punchIntentRef.current = e.shiftKey ? 'print' : 'none';
           formRef.current?.requestSubmit();
         }
         return;
       }
+      if (e.key === 'F3') {
+        e.preventDefault();
+        if (posted || matrixOpen) return;
+        const emptyIdx = lines.findIndex((l) => !l.variantId);
+        setFocusSkuIndex(emptyIdx >= 0 ? emptyIdx : lines.length - 1);
+        return;
+      }
+      if (e.key === 'Escape') {
+        if (matrixOpen || clearConfirmOpen || posted) return;
+        if (isTypingTarget(e.target)) return;
+        e.preventDefault();
+        // Counter mode: Esc with empty cart exits kiosk; otherwise clear lines.
+        if (kiosk && readyLines.length === 0 && shell) {
+          shell.setKiosk(false);
+          return;
+        }
+        if (readyLines.length > 0) setClearConfirmOpen(true);
+        return;
+      }
       if (isTypingTarget(e.target)) return;
-      if (posted) return;
+      if (posted || matrixOpen) return;
       if (e.key === '+' || (e.key === '=' && e.shiftKey)) {
         e.preventDefault();
         addLine(true);
@@ -390,7 +547,18 @@ export function QuickSaleForm({
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [pending, punchSuccess, blockReason, posted]);
+  }, [
+    pending,
+    punchSuccess,
+    blockReason,
+    posted,
+    matrixOpen,
+    clearConfirmOpen,
+    lines,
+    readyLines.length,
+    kiosk,
+    shell,
+  ]);
 
   if (!canWrite) {
     return (
@@ -491,149 +659,251 @@ export function QuickSaleForm({
     </div>
   );
 
-  const punchButton = ({ withMobileStrip = false }: { withMobileStrip?: boolean } = {}) => (
-    <div className="space-y-2">
-      {withMobileStrip ? (
-        <div className="flex items-baseline justify-between gap-3 px-0.5">
-          <span className="text-xs text-muted-foreground">
-            Taxable <MoneyText value={totals.subtotal} className="text-xs" />
-          </span>
-          <span className="text-sm font-semibold text-foreground">
-            Total <MoneyText value={totals.total} className="text-sm font-semibold" />
-          </span>
+  const punchButton = ({ withMobileStrip = false }: { withMobileStrip?: boolean } = {}) => {
+    const disabled = pending || punchSuccess || Boolean(blockReason) || Boolean(posted);
+    return (
+      <div className="space-y-2">
+        {withMobileStrip ? (
+          <div className="flex items-baseline justify-between gap-3 px-0.5">
+            <span className="text-xs text-muted-foreground">
+              Taxable <MoneyText value={totals.subtotal} className="text-xs" />
+            </span>
+            <span className="text-sm font-semibold text-foreground">
+              Total <MoneyText value={totals.total} className="text-sm font-semibold" />
+            </span>
+          </div>
+        ) : null}
+        <div className="flex gap-2">
+          <Button
+            type="submit"
+            size="lg"
+            disabled={disabled}
+            className={cn(
+              'h-12 min-h-12 flex-1 text-base font-semibold shadow-sm',
+              punchSuccess && 'bg-success text-success-foreground hover:bg-success',
+            )}
+            aria-live="polite"
+            onClick={() => {
+              punchIntentRef.current = 'none';
+            }}
+          >
+            {punchSuccess ? (
+              <span className="inline-flex animate-qs-punch-ok items-center gap-2">
+                <Check className="h-5 w-5" strokeWidth={2.25} aria-hidden />
+                Posted
+              </span>
+            ) : pending ? (
+              <span className="inline-flex items-center gap-2">
+                <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
+                Punching…
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-2">
+                Punch
+                <span className="font-mono text-base font-semibold tabular-nums">
+                  · <MoneyText value={totals.total} className="text-base font-semibold" />
+                </span>
+              </span>
+            )}
+          </Button>
+          <Button
+            type="submit"
+            size="lg"
+            variant="secondary"
+            disabled={disabled}
+            className="h-12 min-h-12 w-[4.75rem] shrink-0 px-2 sm:w-auto sm:min-w-[7.5rem] sm:px-3"
+            aria-label="Punch and print"
+            onClick={() => {
+              punchIntentRef.current = 'print';
+            }}
+          >
+            {pending ? (
+              <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
+            ) : (
+              <span className="inline-flex items-center gap-1.5">
+                <Printer className="h-5 w-5" aria-hidden />
+                <span className="hidden sm:inline">Print</span>
+              </span>
+            )}
+          </Button>
         </div>
-      ) : null}
-      <Button
-        type="submit"
-        size="lg"
-        disabled={pending || punchSuccess || Boolean(blockReason) || Boolean(posted)}
-        className={cn(
-          'h-[3.25rem] w-full text-base font-semibold shadow-sm',
-          punchSuccess && 'bg-success text-success-foreground hover:bg-success',
-        )}
-        aria-live="polite"
-      >
-        {punchSuccess ? (
-          <span className="inline-flex animate-qs-punch-ok items-center gap-2">
-            <Check className="h-5 w-5" strokeWidth={2.25} aria-hidden />
-            Posted
-          </span>
-        ) : pending ? (
-          <span className="inline-flex items-center gap-2">
-            <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
-            Punching…
-          </span>
-        ) : (
-          <span className="inline-flex items-center gap-2">
-            Punch sale
-            <span className="font-mono text-base font-semibold tabular-nums">
-              · <MoneyText value={totals.total} className="text-base font-semibold" />
+        {blockReason && !pending && !punchSuccess && !posted ? (
+          <p className="text-center text-xs text-muted-foreground">{blockReason}</p>
+        ) : !punchSuccess && !posted ? (
+          <p className="hidden text-center text-[11px] text-muted-foreground md:block">
+            <span className="inline-flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
+              <span className="inline-flex items-center gap-1">
+                <HotkeyBadge>F2</HotkeyBadge> punch
+              </span>
+              <span className="text-border">·</span>
+              <span className="inline-flex items-center gap-1">
+                <HotkeyBadge>⇧F2</HotkeyBadge> print
+              </span>
+              <span className="text-border">·</span>
+              <span className="inline-flex items-center gap-1">
+                <HotkeyBadge>F3</HotkeyBadge> item
+              </span>
+              <span className="text-border">·</span>
+              <span className="inline-flex items-center gap-1">
+                <HotkeyBadge>1</HotkeyBadge>
+                <HotkeyBadge>2</HotkeyBadge>
+                <HotkeyBadge>3</HotkeyBadge> pay
+              </span>
             </span>
-          </span>
-        )}
-      </Button>
-      {blockReason && !pending && !punchSuccess && !posted ? (
-        <p className="text-center text-xs text-muted-foreground">{blockReason}</p>
-      ) : !punchSuccess && !posted ? (
-        <p className="hidden text-center text-[11px] text-muted-foreground md:block">
-          <span className="inline-flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
-            <span className="inline-flex items-center gap-1">
-              <HotkeyBadge>F2</HotkeyBadge> punch
+          </p>
+        ) : null}
+      </div>
+    );
+  };
+
+  const namedContactFields = (idPrefix: string) => (
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+      <div className="space-y-1">
+        <Label htmlFor={`${idPrefix}-phone`}>Mobile</Label>
+        <Input
+          id={`${idPrefix}-phone`}
+          type="tel"
+          inputMode="tel"
+          className="h-11"
+          autoComplete="tel"
+          placeholder="10-digit mobile"
+          value={customerPhone}
+          onChange={(e) => setCustomerPhone(e.target.value)}
+        />
+        {customerMatch ? (
+          <div
+            className="flex items-start gap-1.5 rounded-md bg-success/10 px-2 py-1.5 text-xs text-success ring-1 ring-inset ring-success/25"
+            role="status"
+          >
+            <Check className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2.25} aria-hidden />
+            <span>
+              Matched <span className="font-semibold">{customerMatch}</span>
             </span>
-            <span className="text-border">·</span>
-            <span className="inline-flex items-center gap-1">
-              <HotkeyBadge>1</HotkeyBadge>
-              <HotkeyBadge>2</HotkeyBadge>
-              <HotkeyBadge>3</HotkeyBadge> pay
-            </span>
-            <span className="text-border">·</span>
-            <span className="inline-flex items-center gap-1">
-              <HotkeyBadge>+</HotkeyBadge> line
-            </span>
-          </span>
-        </p>
-      ) : null}
+          </div>
+        ) : null}
+      </div>
+      <div className="space-y-1">
+        <Label htmlFor={`${idPrefix}-name`}>Name</Label>
+        <Input
+          id={`${idPrefix}-name`}
+          className="h-11"
+          autoComplete="name"
+          placeholder="Customer name"
+          value={customerName}
+          onChange={(e) => setCustomerName(e.target.value)}
+        />
+      </div>
     </div>
   );
 
-  const customerFields = (
+  /** Buyer mode: always visible chips — named fields only when needed (not a wizard step). */
+  const buyerModeToggle = (
+    <div className="grid grid-cols-2 gap-2" role="group" aria-label="Buyer">
+      <button
+        type="button"
+        aria-pressed={useWalkIn}
+        onClick={() => setWalkInMode(true)}
+        className={cn(
+          'h-11 rounded-xl border text-sm font-semibold transition',
+          useWalkIn
+            ? 'border-primary bg-primary text-primary-foreground'
+            : 'border-border/80 bg-card text-muted-foreground active:bg-muted',
+        )}
+      >
+        Walk-in
+      </button>
+      <button
+        type="button"
+        aria-pressed={!useWalkIn}
+        onClick={() => setWalkInMode(false)}
+        className={cn(
+          'h-11 rounded-xl border text-sm font-semibold transition',
+          !useWalkIn
+            ? 'border-primary bg-primary text-primary-foreground'
+            : 'border-border/80 bg-card text-muted-foreground active:bg-muted',
+        )}
+      >
+        Save contact
+      </button>
+    </div>
+  );
+
+  /** Desktop rail — fuller labels. */
+  const customerFieldsDesktop = (
     <div className="space-y-3">
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <h3 className="text-sm font-semibold tracking-tight text-foreground">
-            Who&apos;s buying?
-          </h3>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            {useWalkIn
-              ? 'System walk-in — no phone captured'
-              : customerName.trim() || customerPhone.trim()
-                ? [customerName.trim(), customerPhone.trim()].filter(Boolean).join(' · ')
-                : 'Saved for offers & WhatsApp'}
-          </p>
-        </div>
+      <div>
+        <h3 className="text-sm font-semibold tracking-tight text-foreground">Buyer</h3>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          {useWalkIn
+            ? 'Walk-in — no phone captured'
+            : customerName.trim() || customerPhone.trim()
+              ? [customerName.trim(), customerPhone.trim()].filter(Boolean).join(' · ')
+              : 'Name + mobile for WhatsApp / dues'}
+        </p>
+      </div>
+      {buyerModeToggle}
+      {!useWalkIn ? namedContactFields('qs-d') : null}
+    </div>
+  );
+
+  /** Mobile: buyer + pay in one live strip under items (no step-by-step form). */
+  const mobileCheckoutStrip = (
+    <SurfaceCard padding="md" className="space-y-3">
+      {buyerModeToggle}
+      {!useWalkIn ? namedContactFields('qs-m') : null}
+      <div className="grid grid-cols-3 gap-2" role="group" aria-label="Payment method">
+        {PAY_OPTIONS.map((opt) => {
+          const selected = payMethod === opt.value;
+          const Icon = opt.Icon;
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              aria-pressed={selected}
+              className={cn(
+                'flex h-11 items-center justify-center gap-1.5 rounded-xl border px-2 text-sm font-semibold transition',
+                selected
+                  ? 'border-primary bg-primary text-primary-foreground'
+                  : 'border-border/80 bg-card text-muted-foreground active:bg-muted',
+              )}
+              onClick={() => choosePay(opt.value)}
+            >
+              <Icon className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
+              {opt.label}
+            </button>
+          );
+        })}
+      </div>
+      <div className="flex items-center justify-between gap-2">
         <button
           type="button"
-          aria-pressed={useWalkIn}
-          onClick={() => {
-            setUseWalkIn((v) => !v);
-            setMessage(null);
-          }}
-          className={cn(
-            'shrink-0 rounded-lg border px-3 py-1.5 text-xs font-semibold transition',
-            useWalkIn
-              ? 'border-primary bg-primary text-primary-foreground'
-              : 'border-border/80 bg-card text-muted-foreground hover:bg-muted',
-          )}
+          className="text-xs font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+          onClick={() => setShowAdjust((v) => !v)}
+          aria-expanded={showAdjust}
         >
-          Walk-in
+          {showAdjust ? 'Hide discount' : 'Discount'}
         </button>
+        <span className="text-xs text-muted-foreground">
+          GST <MoneyText value={totals.tax} className="text-xs" />
+        </span>
       </div>
-      {useWalkIn ? (
-        <p className="rounded-md bg-muted/40 px-2.5 py-2 text-xs text-muted-foreground ring-1 ring-inset ring-border/70">
-          Punching as the shop walk-in customer. Turn off Walk-in to capture name &amp; mobile.
-        </p>
-      ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
-          <div className="space-y-1">
-            <Label htmlFor="qs-phone">Mobile</Label>
-            <Input
-              id="qs-phone"
-              type="tel"
-              inputMode="tel"
-              className="h-11"
-              autoComplete="tel"
-              placeholder="10-digit mobile"
-              value={customerPhone}
-              onChange={(e) => setCustomerPhone(e.target.value)}
-              required={!useWalkIn}
-            />
-            {customerMatch ? (
-              <div
-                className="flex items-start gap-1.5 rounded-md bg-success/10 px-2 py-1.5 text-xs text-success ring-1 ring-inset ring-success/25"
-                role="status"
-              >
-                <Check className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2.25} aria-hidden />
-                <span>
-                  Matched <span className="font-semibold">{customerMatch}</span>
-                </span>
-              </div>
-            ) : null}
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="qs-name">Name</Label>
-            <Input
-              id="qs-name"
-              className="h-11"
-              autoComplete="name"
-              placeholder="Customer name"
-              value={customerName}
-              onChange={(e) => setCustomerName(e.target.value)}
-              required={!useWalkIn}
-            />
-          </div>
+      {showAdjust ? (
+        <div className="space-y-1">
+          <Label htmlFor="qs-bill-disc-m">Bill discount (₹)</Label>
+          <Input
+            id="qs-bill-disc-m"
+            type="number"
+            min="0"
+            step="0.01"
+            inputMode="decimal"
+            className="h-11"
+            value={billDiscount}
+            onChange={(e) => setBillDiscount(e.target.value)}
+          />
         </div>
-      )}
-    </div>
+      ) : null}
+      {message ? <p className="text-sm text-destructive">{message}</p> : null}
+    </SurfaceCard>
   );
 
   const successStrip = posted ? (
@@ -704,10 +974,15 @@ export function QuickSaleForm({
   return (
     <form
       ref={formRef}
-      className={cn('space-y-4', stickyFormPadTallClass)}
+      className={cn(
+        'space-y-4',
+        kiosk ? stickyFormPadDualKioskClass : stickyFormPadDualClass,
+      )}
       onSubmit={(e) => {
         e.preventDefault();
         setMessage(null);
+        const intent = punchIntentRef.current;
+        punchIntentRef.current = 'none';
         if (!useWalkIn && !customerName.trim()) {
           setMessage('Customer name is required.');
           return;
@@ -717,7 +992,7 @@ export function QuickSaleForm({
           return;
         }
         if (readyLines.length === 0) {
-          setMessage('Add at least one item code.');
+          setMessage('Add at least one item.');
           return;
         }
         startTransition(async () => {
@@ -751,10 +1026,57 @@ export function QuickSaleForm({
           writeLocal(OPS_KEYS.lastPayMethod, payMethod);
           pushRecentSkuIds(readyLines.map((l) => l.variantId));
           setLocalRecentIds(readRecentSkuIds(8));
+          const articleIds = readyLines
+            .map((l) => catalog.get(l.variantId)?.articleId)
+            .filter((id): id is string => Boolean(id));
+          if (articleIds.length > 0) {
+            pushRecentArticleIds(articleIds);
+          }
+          if (intent === 'print') {
+            window.open(
+              `/sales/${result.data.id}/invoice?print=1`,
+              '_blank',
+              'noopener,noreferrer',
+            );
+          }
           resetFormForNext();
         });
       }}
     >
+      <ArticleMatrixPicker
+        open={matrixOpen}
+        initialArticleId={matrixArticleId}
+        onClose={() => {
+          setMatrixOpen(false);
+          setMatrixArticleId(null);
+        }}
+        onPick={(hit) => {
+          setCatalog((prev) => mergeCatalog(prev, [hit]));
+          if (hit.articleId) {
+            pushRecentArticleIds([hit.articleId]);
+            setArticleChips((prev) => {
+              const chip: ArticleChip = {
+                id: hit.articleId!,
+                name: hit.articleName ?? hit.label,
+                articleCode: hit.articleCode ?? '',
+                brandName: null,
+              };
+              return [chip, ...prev.filter((a) => a.id !== chip.id)].slice(0, 8);
+            });
+          }
+          const emptyIdx = lines.findIndex((l) => !l.variantId);
+          setLineVariant(emptyIdx >= 0 ? emptyIdx : lines.length - 1, hit.id, hit);
+        }}
+      />
+      <ConfirmDialog
+        open={clearConfirmOpen}
+        title="Clear items?"
+        description="Remove all lines from this bill."
+        confirmLabel="Clear"
+        danger
+        onCancel={() => setClearConfirmOpen(false)}
+        onConfirm={clearCart}
+      />
       {successStrip}
 
       <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(18rem,21rem)] lg:items-start lg:gap-6">
@@ -771,25 +1093,92 @@ export function QuickSaleForm({
                   <MoneyText value={totals.total} className="text-[11px] font-semibold" />
                 </Badge>
               ) : null}
-              <span className="text-xs text-muted-foreground">excl. GST in price</span>
             </div>
-            <Button type="button" size="sm" variant="secondary" onClick={() => addLine(true)}>
-              Add line
-            </Button>
+            <div className="flex shrink-0 items-center gap-1.5">
+              {shell ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  className="h-10 px-2.5"
+                  aria-pressed={kiosk}
+                  onClick={() => shell.setKiosk(!kiosk)}
+                  title={kiosk ? 'Exit counter mode' : 'Counter mode'}
+                >
+                  {kiosk ? (
+                    <Shrink className="h-4 w-4" aria-hidden />
+                  ) : (
+                    <Expand className="h-4 w-4" aria-hidden />
+                  )}
+                  <span className="ml-1.5 hidden sm:inline">
+                    {kiosk ? 'Exit' : 'Counter'}
+                  </span>
+                </Button>
+              ) : null}
+              <Button
+                type="button"
+                size="sm"
+                className="h-10"
+                onClick={() => openMatrix(null)}
+              >
+                <Grid2x2 className="h-4 w-4" aria-hidden />
+                <span className="ml-1.5">Size</span>
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                className="h-10"
+                onClick={() => addLine(true)}
+              >
+                <Plus className="h-4 w-4" aria-hidden />
+                <span className="ml-1.5 sr-only sm:not-sr-only">Line</span>
+              </Button>
+            </div>
           </div>
 
+          {articleChips.length > 0 ? (
+            <div className="space-y-1.5">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Articles
+              </p>
+              <div
+                className="flex gap-2 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                aria-label="Recent and frequent articles"
+              >
+                {articleChips.map((a) => (
+                  <button
+                    key={a.id}
+                    type="button"
+                    className="h-11 shrink-0 rounded-xl border border-border/80 bg-card px-3 text-left active:bg-muted"
+                    onClick={() => openMatrix(a.id)}
+                  >
+                    <span className="block max-w-[9rem] truncate text-xs font-semibold leading-tight">
+                      {a.name}
+                    </span>
+                    <span className="block max-w-[9rem] truncate text-[10px] text-muted-foreground">
+                      {[a.brandName, a.articleCode].filter(Boolean).join(' · ')}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
           {quickPickIds.length > 0 ? (
-            <div className="flex gap-2 overflow-x-auto pb-0.5" aria-label="Recent and frequent items">
+            <div
+              className="flex gap-2 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              aria-label="Recent and frequent items"
+            >
               {quickPickIds.map((id) => {
-                const v = variants.find((x) => x.id === id);
+                const v = catalog.get(id);
                 if (!v) return null;
-                const short =
-                  v.sku.length > 14 ? `${v.sku.slice(0, 12)}…` : v.sku;
+                const short = v.sku.length > 14 ? `${v.sku.slice(0, 12)}…` : v.sku;
                 return (
                   <button
                     key={id}
                     type="button"
-                    className="shrink-0 rounded-lg border border-border/80 bg-card px-2.5 py-1.5 text-left text-xs font-medium text-foreground hover:bg-muted"
+                    className="h-10 shrink-0 rounded-lg border border-border/80 bg-muted/30 px-2.5 text-left text-xs font-medium text-foreground active:bg-muted"
                     onClick={() => {
                       const emptyIdx = lines.findIndex((l) => !l.variantId);
                       setLineVariant(emptyIdx >= 0 ? emptyIdx : lines.length - 1, id);
@@ -814,8 +1203,8 @@ export function QuickSaleForm({
 
             <ul className="divide-y divide-border/80">
               {lines.map((line, index) => {
-                const v = variants.find((x) => x.id === line.variantId);
-                const est = lineEstimate(line, variants);
+                const v = catalog.get(line.variantId);
+                const est = lineEstimate(line, catalog);
                 const qtyNum = Number(line.qty) || 0;
                 const overQty = Boolean(v && qtyNum > 0 && qtyNum > v.onHandQty);
                 const lowStock = Boolean(v && v.onHandQty > 0 && v.onHandQty <= 3);
@@ -831,13 +1220,13 @@ export function QuickSaleForm({
                   >
                     <div className="min-w-0 space-y-1.5">
                       <Label className="md:sr-only">Item code</Label>
-                      <Select
+                      <AsyncSkuCombobox
                         value={line.variantId}
-                        onValueChange={(id) => setLineVariant(index, id)}
+                        onValueChange={(id, hit) => setLineVariant(index, id, hit)}
+                        onHits={mergeHits}
+                        seedOptions={seedOptions}
                         placeholder="Search item code…"
                         required={index === 0 || Boolean(line.variantId)}
-                        searchable
-                        options={selectOptions}
                         autoFocus={index === 0 && focusSkuIndex === 0}
                         triggerRef={(el) => {
                           skuTriggerRefs.current[index] = el;
@@ -988,34 +1377,36 @@ export function QuickSaleForm({
               })}
             </ul>
           </SurfaceCard>
-        </div>
 
-        {/* Customer + pay: after items on phone; sticky rail on desktop */}
-        <aside className="order-2 lg:col-start-2 lg:row-start-1 lg:sticky lg:top-24">
-          <SurfaceCard padding="md" className="space-y-0">
-            {customerFields}
-            <div className="mt-5 hidden space-y-5 border-t border-border/80 pt-5 lg:block">
-              {paymentBlock}
-              {totalsBlock}
-              {message ? <p className="text-sm text-destructive">{message}</p> : null}
-              {punchButton()}
+          {/* Mobile checkout — default until lg known (mobile-first); avoid duplicate fields */}
+          {isLgUp !== true ? (
+            <div className="space-y-3">
+              {mobileCheckoutStrip}
+              <StickyFormActions
+                kiosk={kiosk}
+                contentClassName="max-w-lg md:max-w-none"
+                className="md:static md:border-0 md:bg-transparent md:p-0 md:backdrop-blur-none"
+              >
+                {punchButton({ withMobileStrip: true })}
+              </StickyFormActions>
             </div>
-          </SurfaceCard>
-        </aside>
-
-        <div className="order-3 space-y-4 lg:hidden">
-          <SurfaceCard padding="md" className="space-y-5">
-            {paymentBlock}
-            {totalsBlock}
-            {message ? <p className="text-sm text-destructive">{message}</p> : null}
-          </SurfaceCard>
-          <StickyFormActions
-            contentClassName="max-w-lg md:max-w-none"
-            className="md:static md:border-0 md:bg-transparent md:p-0 md:backdrop-blur-none"
-          >
-            {punchButton({ withMobileStrip: true })}
-          </StickyFormActions>
+          ) : null}
         </div>
+
+        {/* Desktop rail — only after lg match confirmed */}
+        {isLgUp === true ? (
+          <aside className="lg:col-start-2 lg:row-start-1 lg:sticky lg:top-24">
+            <SurfaceCard padding="md" className="space-y-0">
+              {customerFieldsDesktop}
+              <div className="mt-5 space-y-5 border-t border-border/80 pt-5">
+                {paymentBlock}
+                {totalsBlock}
+                {message ? <p className="text-sm text-destructive">{message}</p> : null}
+                {punchButton()}
+              </div>
+            </SurfaceCard>
+          </aside>
+        ) : null}
       </div>
     </form>
   );

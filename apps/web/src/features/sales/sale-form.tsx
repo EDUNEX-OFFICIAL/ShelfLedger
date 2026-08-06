@@ -5,6 +5,10 @@ import { computeLineTax, computeRoundOff, distributeBillDiscount, roundMoney } f
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
+import {
+  AsyncSkuCombobox,
+  type AsyncSkuHit,
+} from '@/components/ui/async-sku-combobox';
 import { Textarea } from '@/components/ui/textarea';
 import { FormField } from '@/components/shared/form-field';
 import { MoneyText } from '@/components/shared/money-text';
@@ -17,12 +21,18 @@ import { createSaleAction } from '@/features/sales/actions';
 import { cn } from '@/lib/utils';
 
 type Option = { id: string; label: string };
-type VariantOption = Option & {
-  sellingPrice: number;
-  cgstRate: number;
-  sgstRate: number;
-};
+type VariantOption = AsyncSkuHit;
 type TaxOption = Option & { cgstRate: number; sgstRate: number };
+
+function mergeCatalog(
+  prev: Map<string, VariantOption>,
+  hits: VariantOption[],
+): Map<string, VariantOption> {
+  if (hits.length === 0) return prev;
+  const next = new Map(prev);
+  for (const h of hits) next.set(h.id, h);
+  return next;
+}
 
 type Line = {
   variantId: string;
@@ -49,14 +59,14 @@ const PAY_OPTIONS = [
 
 function estimateDraftTotal(
   lines: Line[],
-  variants: VariantOption[],
+  catalog: Map<string, VariantOption>,
   taxRates: TaxOption[],
   billDiscount: number,
 ) {
   const prepared: Array<{ gross: number; cgstRate: number; sgstRate: number }> = [];
   for (const line of lines) {
     if (!line.variantId) continue;
-    const v = variants.find((x) => x.id === line.variantId);
+    const v = catalog.get(line.variantId);
     if (!v) continue;
     const qty = Number(line.qty) || 0;
     const unitPrice = Number(line.unitPrice) || 0;
@@ -103,13 +113,11 @@ export function SaleForm({
   canWrite,
   canOverride,
   customers,
-  variants,
   taxRates,
 }: {
   canWrite: boolean;
   canOverride: boolean;
   customers: Option[];
-  variants: VariantOption[];
   taxRates: TaxOption[];
 }) {
   const [customerId, setCustomerId] = useState(customers[0]?.id ?? '');
@@ -123,12 +131,17 @@ export function SaleForm({
   const [payRef, setPayRef] = useState('');
   const [lines, setLines] = useState<Line[]>([emptyLine()]);
   const [showTaxRates, setShowTaxRates] = useState(false);
+  const [catalog, setCatalog] = useState<Map<string, VariantOption>>(() => new Map());
   const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
+  const mergeHits = (hits: VariantOption[]) => {
+    setCatalog((prev) => mergeCatalog(prev, hits));
+  };
+
   const totals = useMemo(
-    () => estimateDraftTotal(lines, variants, taxRates, Number(billDiscount) || 0),
-    [lines, variants, taxRates, billDiscount],
+    () => estimateDraftTotal(lines, catalog, taxRates, Number(billDiscount) || 0),
+    [lines, catalog, taxRates, billDiscount],
   );
 
   if (!canWrite) return null;
@@ -244,11 +257,13 @@ export function SaleForm({
                   required
                   className="lg:col-span-2"
                 >
-                  <Select
+                  <AsyncSkuCombobox
                     id={`sale-var-${index}`}
                     value={line.variantId}
-                    onValueChange={(id) => {
-                      const v = variants.find((x) => x.id === id);
+                    onHits={mergeHits}
+                    onValueChange={(id, hit) => {
+                      if (hit) setCatalog((prev) => mergeCatalog(prev, [hit]));
+                      const v = hit ?? catalog.get(id);
                       setLines((rows) =>
                         rows.map((r, i) =>
                           i === index
@@ -261,10 +276,8 @@ export function SaleForm({
                         ),
                       );
                     }}
-                    placeholder="Select item code"
+                    placeholder="Search item code…"
                     required
-                    searchable
-                    options={variants.map((v) => ({ value: v.id, label: v.label }))}
                   />
                 </FormField>
                 <FormField id={`sale-qty-${index}`} label="Qty" required>

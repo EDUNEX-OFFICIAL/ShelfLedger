@@ -7,6 +7,10 @@ import { computeLineTax, roundMoney } from '@shelfledger/domain';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
+import {
+  AsyncSkuCombobox,
+  type AsyncSkuHit,
+} from '@/components/ui/async-sku-combobox';
 import { Textarea } from '@/components/ui/textarea';
 import { FormField } from '@/components/shared/form-field';
 import { MoneyText } from '@/components/shared/money-text';
@@ -19,11 +23,7 @@ import { createExchangeAction } from '@/features/sales/actions';
 import { cn } from '@/lib/utils';
 
 type Option = { id: string; label: string };
-type VariantOption = Option & {
-  sellingPrice: number;
-  cgstRate: number;
-  sgstRate: number;
-};
+type VariantOption = AsyncSkuHit;
 type SaleOption = {
   id: string;
   label: string;
@@ -60,14 +60,12 @@ export function ExchangeForm({
   canWrite,
   customers,
   sales,
-  variants,
   taxRates,
   initialSaleId = '',
 }: {
   canWrite: boolean;
   customers: Option[];
   sales: SaleOption[];
-  variants: VariantOption[];
   taxRates: Option[];
   initialSaleId?: string;
 }) {
@@ -78,8 +76,18 @@ export function ExchangeForm({
   const [returnRows, setReturnRows] = useState<ReturnRow[]>([]);
   const [replaceLines, setReplaceLines] = useState<ReplaceLine[]>([]);
   const [showTaxRates, setShowTaxRates] = useState(false);
+  const [catalog, setCatalog] = useState<Map<string, VariantOption>>(() => new Map());
   const [message, setMessage] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null);
   const [pending, startTransition] = useTransition();
+
+  const mergeHits = (hits: VariantOption[]) => {
+    setCatalog((prev) => {
+      if (hits.length === 0) return prev;
+      const next = new Map(prev);
+      for (const h of hits) next.set(h.id, h);
+      return next;
+    });
+  };
 
   const filteredSales = useMemo(() => {
     if (!customerId) return sales;
@@ -126,7 +134,7 @@ export function ExchangeForm({
     let replaceTotal = 0;
     for (const rep of replaceLines) {
       if (!rep.variantId || !(Number(rep.qty) > 0)) continue;
-      const v = variants.find((x) => x.id === rep.variantId);
+      const v = catalog.get(rep.variantId);
       if (!v) continue;
       replaceTotal = roundMoney(
         replaceTotal +
@@ -140,7 +148,7 @@ export function ExchangeForm({
     }
     const difference = roundMoney(replaceTotal - returnTotal);
     return { returnTotal, replaceTotal, difference };
-  }, [checkedReturns, saleLines, replaceLines, variants]);
+  }, [checkedReturns, saleLines, replaceLines, catalog]);
 
   if (!canWrite) return null;
 
@@ -449,11 +457,13 @@ export function ExchangeForm({
                     required
                     className="lg:col-span-2"
                   >
-                    <Select
+                    <AsyncSkuCombobox
                       id={`ex-rep-var-${index}`}
                       value={line.variantId}
-                      onValueChange={(id) => {
-                        const v = variants.find((x) => x.id === id);
+                      onHits={mergeHits}
+                      onValueChange={(id, hit) => {
+                        if (hit) mergeHits([hit]);
+                        const v = hit ?? catalog.get(id);
                         setReplaceLines((rows) =>
                           rows.map((r, i) =>
                             i === index
@@ -466,10 +476,8 @@ export function ExchangeForm({
                           ),
                         );
                       }}
-                      placeholder="Select item code"
+                      placeholder="Search item code…"
                       required
-                      searchable
-                      options={variants.map((v) => ({ value: v.id, label: v.label }))}
                     />
                   </FormField>
                   <FormField id={`ex-rep-qty-${index}`} label="Qty" required>

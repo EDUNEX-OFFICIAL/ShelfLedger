@@ -5,7 +5,6 @@ import { exchangeService } from '@/server/services/exchange';
 import { saleService } from '@/server/services/sale';
 import { customerService } from '@/server/services/customer';
 import { masterService } from '@/server/services/masters';
-import { inventoryService } from '@/server/services/inventory';
 import { PageHeader } from '@/components/shared/page-header';
 import { SectionHeader } from '@/components/shared/section-header';
 import { buttonClassName } from '@/components/ui/button';
@@ -20,11 +19,10 @@ export default async function ExchangesPage({
   const user = await requireSession();
   const canWrite = canSell(user.role);
   const params = await searchParams;
-  const [exchanges, customers, sales, variants, taxRates] = await Promise.all([
+  const [exchanges, customers, sales, taxRates] = await Promise.all([
     exchangeService.list(user),
     customerService.list(user),
     saleService.list(user),
-    inventoryService.listVariants(user),
     masterService.listTaxRates(user),
   ]);
 
@@ -76,17 +74,6 @@ export default async function ExchangesPage({
               label: c.isWalkIn ? `${c.name} (walk-in)` : c.name,
             }))}
             sales={postedSales}
-            variants={variants.map((v) => ({
-              id: v.id,
-              label: `${v.sku} — ${v.article.name} (${v.size}/${v.color})`,
-              sellingPrice: Number(v.sellingPrice),
-              cgstRate: v.article.defaultTaxRate
-                ? Number(v.article.defaultTaxRate.cgstRate)
-                : 0,
-              sgstRate: v.article.defaultTaxRate
-                ? Number(v.article.defaultTaxRate.sgstRate)
-                : 0,
-            }))}
             taxRates={taxRates.map((t) => ({ id: t.id, label: t.name }))}
           />
         </section>

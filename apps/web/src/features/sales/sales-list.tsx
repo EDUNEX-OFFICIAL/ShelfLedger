@@ -6,6 +6,7 @@ import { MoneyText } from '@/components/shared/money-text';
 import { StatusBadge } from '@/components/ui/badge';
 import { buttonClassName } from '@/components/ui/button';
 import { PostSaleButton, InvoiceLink } from '@/features/sales/sale-actions';
+import { CollectPaymentButton } from '@/features/sales/collect-payment-button';
 
 export type SaleListRow = {
   id: string;
@@ -14,6 +15,7 @@ export type SaleListRow = {
   status: string;
   paymentStatus: string;
   totalAmount: number;
+  dueAmount: number;
   invoiceDate: Date | string;
 };
 
@@ -104,13 +106,25 @@ export function SalesList({
           </div>
         ) : undefined
       }
-      mobileHref={(r) => (r.status === 'POSTED' ? `/sales/${r.id}/invoice` : null)}
+      mobileHref={(r) => {
+        // Open dues need Collect on the chip — whole-row link would hide actions.
+        if (r.status !== 'POSTED') return null;
+        if (r.paymentStatus === 'UNPAID' || r.paymentStatus === 'PARTIAL') return null;
+        return `/sales/${r.id}/invoice`;
+      }}
       mobileTitle={(r) => r.invoiceLabel}
       mobileMeta={(r) => `${r.customerName} · ${formatInvoiceDate(r.invoiceDate)}`}
       mobileTrailing={(r) => (
         <div className="flex flex-col items-end gap-1">
           <MoneyText value={r.totalAmount} className="text-sm font-semibold" />
           <StatusBadge status={r.status === 'DRAFT' ? r.status : r.paymentStatus} />
+          {r.status === 'POSTED' &&
+          (r.paymentStatus === 'UNPAID' || r.paymentStatus === 'PARTIAL') &&
+          r.dueAmount > 0.001 ? (
+            <span className="text-[10px] font-medium text-muted-foreground">
+              Due <MoneyText value={r.dueAmount} className="text-[10px] font-semibold" />
+            </span>
+          ) : null}
         </div>
       )}
       columns={[
@@ -167,6 +181,17 @@ export function SalesList({
       actions={(r) => (
         <>
           {r.status === 'DRAFT' && canWrite ? <PostSaleButton saleId={r.id} /> : null}
+          {r.status === 'POSTED' &&
+          canWrite &&
+          (r.paymentStatus === 'UNPAID' || r.paymentStatus === 'PARTIAL') &&
+          r.dueAmount > 0.001 ? (
+            <CollectPaymentButton
+              saleId={r.id}
+              invoiceLabel={r.invoiceLabel}
+              customerName={r.customerName}
+              dueAmount={r.dueAmount}
+            />
+          ) : null}
           {r.status === 'POSTED' ? <InvoiceLink saleId={r.id} /> : null}
         </>
       )}
