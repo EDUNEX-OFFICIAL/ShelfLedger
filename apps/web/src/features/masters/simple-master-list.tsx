@@ -46,7 +46,7 @@ export function SimpleMasterList({
       emptyAction={emptyAction}
       mobileTitle={(r) => r.name}
       mobileMeta={(r) => (r.secondary ? undefined : 'No short code')}
-      mobileTrailing={(r) =>
+      mobileAmount={(r) =>
         r.secondary ? (
           <SkuText value={r.secondary} className="text-sm font-semibold" />
         ) : (

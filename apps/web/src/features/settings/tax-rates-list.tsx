@@ -28,9 +28,10 @@ export function TaxRatesList({
       emptyDescription="Add CGST+SGST rates (e.g. 5%, 12%, 18%) for articles and sale lines."
       mobileTitle={(r) => r.name}
       mobileMeta={(r) => `CGST ${r.cgstRate}% · SGST ${r.sgstRate}%`}
-      mobileTrailing={(r) => (
+      mobileAmount={(r) => (
         <span className="font-mono text-base font-semibold tabular-nums">{r.totalRate}%</span>
       )}
+      mobileHint={() => 'total GST'}
       columns={[
         {
           id: 'name',

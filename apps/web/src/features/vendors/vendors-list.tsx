@@ -75,21 +75,19 @@ export function VendorsList({ rows, canWrite }: { rows: VendorListRow[]; canWrit
         if (gst && terms) return `${gst} · ${terms}`;
         if (gst) return gst;
         if (terms) return terms;
-        return r.phone ?? 'No GSTIN';
+        return 'No GSTIN';
       }}
-      mobileTrailing={(r) =>
+      mobileAmount={(r) =>
         r.phone ? (
           <a
             href={`tel:${digitsOnly(r.phone)}`}
-            className="font-mono text-sm font-semibold text-primary"
+            className="font-mono text-base font-semibold text-primary"
             onClick={(e) => e.stopPropagation()}
           >
             {r.phone}
           </a>
         ) : (
-          <span className="font-mono text-xs text-muted-foreground">
-            {r.gstin?.trim() ? r.gstin : '—'}
-          </span>
+          <span className="text-xs font-medium text-muted-foreground">No phone</span>
         )
       }
       columns={[

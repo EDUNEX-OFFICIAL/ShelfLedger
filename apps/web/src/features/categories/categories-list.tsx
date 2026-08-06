@@ -68,24 +68,18 @@ export function CategoriesList({
           {r.name}
         </span>
       )}
-      mobileMeta={(r) =>
-        r.parentName
-          ? `Under ${r.parentName}`
-          : r.childCount > 0
-            ? `${r.childCount} subcategor${r.childCount === 1 ? 'y' : 'ies'}`
-            : 'Root'
+      mobileMeta={(r) => (r.parentName ? `Under ${r.parentName}` : 'Root category')}
+      mobileStatus={(r) => (
+        <span className="rounded-md bg-muted/80 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground ring-1 ring-inset ring-border/60">
+          {r.depth === 0 ? 'Root' : 'Sub'}
+        </span>
+      )}
+      mobileAmount={(r) =>
+        r.childCount > 0 ? (
+          <span className="font-mono text-base font-semibold tabular-nums">{r.childCount}</span>
+        ) : null
       }
-      mobileTrailing={(r) =>
-        r.depth === 0 ? (
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Root
-          </span>
-        ) : (
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Sub
-          </span>
-        )
-      }
+      mobileHint={(r) => (r.childCount > 0 ? 'children' : null)}
       columns={[
         {
           id: 'name',

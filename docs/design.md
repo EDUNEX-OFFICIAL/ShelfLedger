@@ -367,8 +367,14 @@ Primary job: nested groups for articles (root → optional subcategory). Not a f
 
 ### Responsive lists
 
-- `md+`: dense table
-- `&lt;md`: stacked chip rows (title, meta, key fields, actions)
+- `md+`: dense table in one card
+- `&lt;md`: **separate chips** (not a flat table) — hierarchy:
+  1. **Title** (primary identity)
+  2. **Meta** + optional **status badge**
+  3. **Amount / qty** (hero number, right) + optional **hint**
+  4. Optional fact pills for extra columns (`mobile: true`)
+  5. **Actions** footer strip (always outside the tap-link)
+- Loading: `DataListSkeleton` + shimmer (`skeleton-shimmer`); route `app/(app)/loading.tsx`
 
 
 ---

@@ -83,16 +83,8 @@ export function StaffList({
         </span>
       )}
       mobileMeta={(r) => r.email}
-      mobileTrailing={(r) => (
-        <div className="flex flex-col items-end gap-1">
-          <Badge variant={roleBadgeVariant(r.role)}>{ROLE_LABELS[r.role]}</Badge>
-          {!r.isActive ? (
-            <Badge variant="muted" className="text-[10px]">
-              Off
-            </Badge>
-          ) : null}
-        </div>
-      )}
+      mobileStatus={(r) => <Badge variant={roleBadgeVariant(r.role)}>{ROLE_LABELS[r.role]}</Badge>}
+      mobileHint={(r) => (!r.isActive ? 'Inactive' : null)}
       columns={[
         {
           id: 'name',

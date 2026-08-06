@@ -84,15 +84,18 @@ export function ArticlesList({
         ) : undefined
       }
       mobileTitle={(r) => r.name}
-      mobileMeta={(r) =>
-        `${r.articleCode} · ${r.brandName} · ${r.variantSummary || 'No variants'}`
-      }
-      mobileTrailing={(r) => (
-        <span className="font-mono text-sm font-semibold tabular-nums text-foreground">
-          {r.variantCount}
-          <span className="ml-0.5 text-[10px] font-medium text-muted-foreground">item codes</span>
-        </span>
+      mobileMeta={(r) => `${r.articleCode} · ${r.brandName}`}
+      mobileAmount={(r) => (
+        <span className="font-mono text-base font-semibold tabular-nums">{r.variantCount}</span>
       )}
+      mobileHint={() => 'item codes'}
+      mobileStatus={(r) =>
+        r.variantSummary ? (
+          <span className="max-w-[10rem] truncate rounded-md bg-muted/80 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground ring-1 ring-inset ring-border/60">
+            {r.variantSummary}
+          </span>
+        ) : null
+      }
       columns={[
         {
           id: 'article',

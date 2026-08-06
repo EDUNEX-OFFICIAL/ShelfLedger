@@ -68,29 +68,27 @@ export function CustomersList({
           </a>
         ) : undefined
       }
-      mobileTitle={(r) => (
-        <span className="inline-flex items-center gap-2">
-          {r.name}
-          {r.isWalkIn ? (
-            <Badge variant="muted" className="text-[10px]">
-              walk-in
-            </Badge>
-          ) : null}
-        </span>
-      )}
+      mobileTitle={(r) => r.name}
       mobileMeta={(r) => (r.gstin ? `GSTIN ${r.gstin}` : r.isWalkIn ? 'Default counter customer' : null)}
-      mobileTrailing={(r) =>
+      mobileAmount={(r) =>
         r.phone ? (
           <a
             href={`tel:${digitsOnly(r.phone)}`}
-            className="font-mono text-sm font-semibold text-primary"
+            className="font-mono text-base font-semibold text-primary"
             onClick={(e) => e.stopPropagation()}
           >
             {r.phone}
           </a>
         ) : (
-          <span className="text-xs text-muted-foreground">No phone</span>
+          <span className="text-xs font-medium text-muted-foreground">No phone</span>
         )
+      }
+      mobileStatus={(r) =>
+        r.isWalkIn ? (
+          <Badge variant="muted" className="text-[10px]">
+            Walk-in
+          </Badge>
+        ) : null
       }
       columns={[
         {

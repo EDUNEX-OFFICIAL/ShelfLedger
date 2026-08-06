@@ -35,8 +35,7 @@ function formatBillDate(d: Date | string | null) {
 function billMeta(r: PurchaseListRow) {
   const inv = r.vendorInvoiceNo?.trim() || 'No invoice #';
   const date = formatBillDate(r.vendorInvoiceDate);
-  const lines = `${r.lineCount} line${r.lineCount === 1 ? '' : 's'}`;
-  return date ? `${inv} · ${date} · ${lines}` : `${inv} · ${lines}`;
+  return date ? `${inv} · ${date}` : inv;
 }
 
 export function PurchasesList({
@@ -89,12 +88,9 @@ export function PurchasesList({
       }
       mobileTitle={(r) => r.vendorName}
       mobileMeta={(r) => billMeta(r)}
-      mobileTrailing={(r) => (
-        <div className="flex flex-col items-end gap-1">
-          <MoneyText value={r.totalAmount} className="text-sm font-semibold" />
-          <StatusBadge status={r.status} />
-        </div>
-      )}
+      mobileAmount={(r) => <MoneyText value={r.totalAmount} className="text-base font-semibold" />}
+      mobileStatus={(r) => <StatusBadge status={r.status} />}
+      mobileHint={(r) => `${r.lineCount} line${r.lineCount === 1 ? '' : 's'}`}
       columns={[
         {
           id: 'vendor',

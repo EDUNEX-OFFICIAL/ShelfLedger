@@ -269,14 +269,14 @@ export default async function DashboardPage({
             </Link>
           }
           mobileHref={(r) => `/sales/${r.id}/invoice`}
-          mobileTitle={(r) => r.invoiceNo}
-          mobileMeta={(r) => r.customerName}
-          mobileTrailing={(r) => (
-            <div className="flex flex-col items-end gap-1">
-              <MoneyText value={r.totalAmount} className="text-sm font-semibold" />
-              <StatusBadge status={r.paymentStatus} />
-            </div>
+          mobileTitle={(r) => (
+            <span className="font-mono text-[15px] tracking-tight">{r.invoiceNo}</span>
           )}
+          mobileMeta={(r) => r.customerName}
+          mobileAmount={(r) => (
+            <MoneyText value={r.totalAmount} className="text-base font-semibold" />
+          )}
+          mobileStatus={(r) => <StatusBadge status={r.paymentStatus} />}
           columns={[
             {
               id: 'invoice',

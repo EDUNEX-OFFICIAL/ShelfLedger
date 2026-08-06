@@ -112,24 +112,24 @@ export function SalesList({
         if (r.paymentStatus === 'UNPAID' || r.paymentStatus === 'PARTIAL') return null;
         return `/sales/${r.id}/invoice`;
       }}
-      mobileTitle={(r) => r.invoiceLabel}
-      mobileMeta={(r) => `${r.customerName} · ${formatInvoiceDate(r.invoiceDate)}`}
-      mobileTrailing={(r) => (
-        <div className="flex flex-col items-end gap-1">
-          <MoneyText value={r.totalAmount} className="text-sm font-semibold" />
-          <StatusBadge status={r.status === 'DRAFT' ? r.status : r.paymentStatus} />
-          {r.status === 'POSTED' &&
-          (r.paymentStatus === 'UNPAID' || r.paymentStatus === 'PARTIAL') &&
-          r.dueAmount > 0.001 ? (
-            <span className="text-[10px] font-medium text-muted-foreground">
-              Due{' '}
-              <span className="font-mono text-[10px] font-semibold tabular-nums text-foreground">
-                {formatInr(r.dueAmount)}
-              </span>
-            </span>
-          ) : null}
-        </div>
+      mobileTitle={(r) => (
+        <span className="font-mono text-[15px] tracking-tight">{r.invoiceLabel}</span>
       )}
+      mobileMeta={(r) => `${r.customerName} · ${formatInvoiceDate(r.invoiceDate)}`}
+      mobileAmount={(r) => <MoneyText value={r.totalAmount} className="text-base font-semibold" />}
+      mobileStatus={(r) => (
+        <StatusBadge status={r.status === 'DRAFT' ? r.status : r.paymentStatus} />
+      )}
+      mobileHint={(r) =>
+        r.status === 'POSTED' &&
+        (r.paymentStatus === 'UNPAID' || r.paymentStatus === 'PARTIAL') &&
+        r.dueAmount > 0.001 ? (
+          <>
+            Due{' '}
+            <span className="font-mono tabular-nums text-foreground">{formatInr(r.dueAmount)}</span>
+          </>
+        ) : null
+      }
       columns={[
         {
           id: 'invoice',

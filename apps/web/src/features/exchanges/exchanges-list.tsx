@@ -81,19 +81,18 @@ export function ExchangesList({
         const inv = r.invoiceNo;
         return when ? `${inv} · ${when}` : inv;
       }}
-      mobileTrailing={(r) => (
-        <div className="flex flex-col items-end gap-0.5">
-          <MoneyText
-            value={r.differenceAmount}
-            className={cn(
-              'text-sm font-semibold',
-              r.differenceAmount > 0 && 'text-warning',
-              r.differenceAmount < 0 && 'text-success',
-            )}
-          />
-          <span className="text-[10px] text-muted-foreground">{diffHint(r.differenceAmount)}</span>
-        </div>
+      mobileAmount={(r) => (
+        <MoneyText
+          value={r.differenceAmount}
+          className={cn(
+            'text-base font-semibold',
+            r.differenceAmount > 0 && 'text-warning',
+            r.differenceAmount < 0 && 'text-success',
+          )}
+        />
       )}
+      mobileStatus={(r) => <StatusBadge status={r.status} />}
+      mobileHint={(r) => diffHint(r.differenceAmount)}
       columns={[
         {
           id: 'customer',

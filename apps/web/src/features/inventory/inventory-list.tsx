@@ -63,27 +63,34 @@ export function InventoryBalancesList({
           </div>
         ) : undefined
       }
-      mobileTitle={(r) => (
-        <span className="font-mono text-[15px] tracking-tight">{r.sku}</span>
-      )}
-      mobileMeta={(r) => `${r.articleName} · ${r.sizeColor} · ${r.location}`}
-      mobileTrailing={(r) => (
-        <div className="flex flex-col items-end gap-1">
-          <span
-            className={cn(
-              'font-mono text-base font-semibold tabular-nums',
-              r.lowStock ? 'text-destructive' : 'text-foreground',
-            )}
-          >
-            {r.qty}
+      mobileTitle={(r) => r.articleName}
+      mobileMeta={(r) => (
+        <span className="font-mono">
+          {r.sku}
+          <span className="font-sans text-muted-foreground">
+            {' '}
+            · {r.sizeColor} · {r.location}
           </span>
-          {r.lowStock ? (
-            <Badge variant="warning" className="text-[10px]">
-              Low
-            </Badge>
-          ) : null}
-        </div>
+        </span>
       )}
+      mobileAmount={(r) => (
+        <span
+          className={cn(
+            'font-mono text-base font-semibold tabular-nums',
+            r.lowStock ? 'text-destructive' : 'text-foreground',
+          )}
+        >
+          {r.qty}
+        </span>
+      )}
+      mobileStatus={(r) =>
+        r.lowStock ? (
+          <Badge variant="warning" className="text-[10px]">
+            Low
+          </Badge>
+        ) : null
+      }
+      mobileHint={() => <span className="text-muted-foreground">on hand</span>}
       columns={[
         {
           id: 'sku',

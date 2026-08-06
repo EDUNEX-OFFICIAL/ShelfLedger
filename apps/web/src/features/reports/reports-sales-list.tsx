@@ -43,9 +43,13 @@ export function ReportsSalesList({ rows }: { rows: ReportSaleRow[] }) {
           Quick Sale
         </Link>
       }
-      mobileTitle={(r) => r.invoiceNo}
-      mobileMeta={(r) => `${r.invoiceDateLabel} · Tax ${r.taxAmount.toFixed(2)}`}
-      mobileTrailing={(r) => <MoneyText value={r.totalAmount} className="font-semibold" />}
+      mobileTitle={(r) => (
+        <span className="font-mono text-[15px] tracking-tight">{r.invoiceNo}</span>
+      )}
+      mobileMeta={(r) => r.invoiceDateLabel}
+      mobileAmount={(r) => <MoneyText value={r.totalAmount} className="text-base font-semibold" />}
+      mobileStatus={(r) => <StatusBadge status={r.paymentStatus} />}
+      mobileHint={(r) => `Tax ₹${r.taxAmount.toFixed(2)}`}
       mobileHref={(r) => `/sales/${r.id}/invoice`}
       columns={[
         {

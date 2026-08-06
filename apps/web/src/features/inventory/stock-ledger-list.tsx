@@ -141,18 +141,23 @@ export function StockLedgerList({
           </Link>
         </div>
       }
-      mobileTitle={(r) => (
-        <span className="font-mono text-[15px] tracking-tight">{r.sku}</span>
-      )}
+      mobileTitle={(r) => r.articleName}
       mobileMeta={(r) => (
         <span>
-          {r.movementLabel} · {formatWhen(r.when)}
-          {r.notes ? ` · ${r.notes}` : ''}
+          <span className="font-mono">{r.sku}</span>
+          <span className="text-muted-foreground">
+            {' '}
+            · {r.sizeColor} · {formatWhen(r.when)}
+          </span>
         </span>
       )}
-      mobileTrailing={(r) => (
-        <QtyDelta value={r.qtyChange} className="text-base font-semibold" />
+      mobileAmount={(r) => <QtyDelta value={r.qtyChange} className="text-base font-semibold" />}
+      mobileStatus={(r) => (
+        <Badge variant="muted" className="text-[10px]">
+          {r.movementLabel}
+        </Badge>
       )}
+      mobileHint={(r) => (r.notes?.trim() ? r.notes.trim() : r.refLabel || null)}
       mobileHref={(r) => r.refHref}
       columns={[
         {

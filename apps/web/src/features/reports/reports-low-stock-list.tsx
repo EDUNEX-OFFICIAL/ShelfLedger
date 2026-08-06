@@ -32,13 +32,19 @@ export function ReportsLowStockList({ rows }: { rows: ReportLowStockRow[] }) {
           Inventory
         </Link>
       }
-      mobileTitle={(r) => <span className="font-mono text-[15px] tracking-tight">{r.sku}</span>}
-      mobileMeta={(r) => `${r.articleName} · need ≤ ${r.threshold}`}
-      mobileTrailing={(r) => (
+      mobileTitle={(r) => r.articleName}
+      mobileMeta={(r) => (
+        <span>
+          <span className="font-mono">{r.sku}</span>
+          <span className="text-muted-foreground"> · {r.location}</span>
+        </span>
+      )}
+      mobileAmount={(r) => (
         <span className="font-mono text-base font-semibold tabular-nums text-destructive">
           {r.qty}
         </span>
       )}
+      mobileHint={(r) => `need ≤ ${r.threshold}`}
       mobileHref={(r) => `/stock-ledger?sku=${encodeURIComponent(r.sku)}`}
       columns={[
         {

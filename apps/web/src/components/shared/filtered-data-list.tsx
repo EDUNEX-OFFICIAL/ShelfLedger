@@ -12,6 +12,9 @@ export function FilteredDataList<T extends { id: string }>({
   columns,
   mobileTitle,
   mobileMeta,
+  mobileAmount,
+  mobileStatus,
+  mobileHint,
   mobileTrailing,
   mobileHref,
   actions,
@@ -23,11 +26,15 @@ export function FilteredDataList<T extends { id: string }>({
   emptyTitle,
   emptyDescription,
   emptyAction,
+  loading,
 }: {
   rows: T[];
   columns: DataColumn<T>[];
   mobileTitle: (row: T) => ReactNode;
   mobileMeta?: (row: T) => ReactNode;
+  mobileAmount?: (row: T) => ReactNode;
+  mobileStatus?: (row: T) => ReactNode;
+  mobileHint?: (row: T) => ReactNode;
   mobileTrailing?: (row: T) => ReactNode;
   mobileHref?: (row: T) => string | null | undefined;
   actions?: (row: T) => ReactNode;
@@ -46,6 +53,7 @@ export function FilteredDataList<T extends { id: string }>({
   emptyTitle: string;
   emptyDescription?: string;
   emptyAction?: ReactNode;
+  loading?: boolean;
 }) {
   const [search, setSearch] = useState(initialSearch ?? '');
   const [filterValues, setFilterValues] = useState<Record<string, string>>(() => {
@@ -99,9 +107,13 @@ export function FilteredDataList<T extends { id: string }>({
         columns={columns}
         mobileTitle={mobileTitle}
         mobileMeta={mobileMeta}
+        mobileAmount={mobileAmount}
+        mobileStatus={mobileStatus}
+        mobileHint={mobileHint}
         mobileTrailing={mobileTrailing}
         mobileHref={mobileHref}
         actions={actions}
+        loading={loading}
         isFiltered={hasActive}
         emptyTitle={emptyTitle}
         emptyDescription={emptyDescription}

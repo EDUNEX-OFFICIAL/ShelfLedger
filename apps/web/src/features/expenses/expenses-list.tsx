@@ -79,14 +79,12 @@ export function ExpensesList({
         ) : undefined
       }
       mobileTitle={(r) => r.category}
-      mobileMeta={(r) => {
+      mobileMeta={(r) => `${formatExpenseDate(r.date)} · ${payLabel(r.paymentMethod)}`}
+      mobileAmount={(r) => <MoneyText value={r.amount} className="text-base font-semibold" />}
+      mobileHint={(r) => {
         const note = r.notes?.trim();
-        const base = `${formatExpenseDate(r.date)} · ${payLabel(r.paymentMethod)}`;
-        return note ? `${base} · ${note}` : base;
+        return note ? <span className="line-clamp-1">{note}</span> : null;
       }}
-      mobileTrailing={(r) => (
-        <MoneyText value={r.amount} className="text-sm font-semibold" />
-      )}
       columns={[
         {
           id: 'date',
