@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { FilteredDataList } from '@/components/shared/filtered-data-list';
-import { MoneyText } from '@/components/shared/money-text';
+import { MoneyText, formatInr } from '@/components/shared/money-text';
 import { StatusBadge } from '@/components/ui/badge';
 import { buttonClassName } from '@/components/ui/button';
 import { PostSaleButton, InvoiceLink } from '@/features/sales/sale-actions';
@@ -122,7 +122,10 @@ export function SalesList({
           (r.paymentStatus === 'UNPAID' || r.paymentStatus === 'PARTIAL') &&
           r.dueAmount > 0.001 ? (
             <span className="text-[10px] font-medium text-muted-foreground">
-              Due <MoneyText value={r.dueAmount} className="text-[10px] font-semibold" />
+              Due{' '}
+              <span className="font-mono text-[10px] font-semibold tabular-nums text-foreground">
+                {formatInr(r.dueAmount)}
+              </span>
             </span>
           ) : null}
         </div>

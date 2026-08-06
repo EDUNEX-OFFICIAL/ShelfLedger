@@ -166,7 +166,7 @@ export function ExchangeForm({
       >
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
               {preview.difference > 0
                 ? 'Collect from customer'
                 : preview.difference < 0
@@ -352,7 +352,7 @@ export function ExchangeForm({
                     <li
                       key={row.originalSaleLineId}
                       className={cn(
-                        'grid gap-3 rounded-xl border border-border/70 bg-muted/30 p-3.5 sm:grid-cols-[auto_minmax(0,1fr)_7rem] sm:items-center',
+                        'grid gap-3 rounded-xl border border-border/70 bg-muted/30 p-3.5 sm:grid-cols-[auto_minmax(0,1fr)_8rem] sm:items-center',
                         row.checked && 'ring-1 ring-primary/25',
                       )}
                     >
@@ -386,6 +386,8 @@ export function ExchangeForm({
                           min="0.001"
                           step="any"
                           max={line.qty}
+                          inputMode="decimal"
+                          className="font-mono tabular-nums"
                           value={row.qty}
                           disabled={!row.checked}
                           onChange={(e) =>
@@ -460,6 +462,7 @@ export function ExchangeForm({
                     <AsyncSkuCombobox
                       id={`ex-rep-var-${index}`}
                       value={line.variantId}
+                      selectedLabel={catalog.get(line.variantId)?.label ?? null}
                       onHits={mergeHits}
                       onValueChange={(id, hit) => {
                         if (hit) mergeHits([hit]);
@@ -476,7 +479,7 @@ export function ExchangeForm({
                           ),
                         );
                       }}
-                      placeholder="Search item code…"
+                      placeholder="Search item…"
                       required
                     />
                   </FormField>
@@ -486,6 +489,8 @@ export function ExchangeForm({
                       type="number"
                       min="0.001"
                       step="any"
+                      inputMode="decimal"
+                      className="font-mono tabular-nums"
                       value={line.qty}
                       onChange={(e) =>
                         setReplaceLines((rows) =>

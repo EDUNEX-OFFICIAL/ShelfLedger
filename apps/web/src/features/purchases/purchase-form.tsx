@@ -55,6 +55,7 @@ export function PurchaseForm({
   const [notes, setNotes] = useState('');
   const [lines, setLines] = useState<Line[]>([emptyLine()]);
   const [showTaxRates, setShowTaxRates] = useState(false);
+  const [skuLabels, setSkuLabels] = useState<Record<string, string>>({});
   const [message, setMessage] = useState<{ tone: 'ok' | 'err'; text: string } | null>(
     null,
   );
@@ -95,6 +96,7 @@ export function PurchaseForm({
     setVendorInvoiceDate('');
     setNotes('');
     setLines([emptyLine()]);
+    setSkuLabels({});
   };
 
   const rememberVendor = (id: string) => {
@@ -231,8 +233,14 @@ export function PurchaseForm({
                   <AsyncSkuCombobox
                     id={`po-var-${index}`}
                     value={line.variantId}
-                    onValueChange={(variantId) => setLineVariant(index, variantId)}
-                    placeholder="Search item code…"
+                    selectedLabel={skuLabels[line.variantId] ?? null}
+                    onValueChange={(variantId, hit) => {
+                      if (hit?.label) {
+                        setSkuLabels((prev) => ({ ...prev, [variantId]: hit.label }));
+                      }
+                      setLineVariant(index, variantId);
+                    }}
+                    placeholder="Search item…"
                     required
                   />
                 </FormField>
@@ -242,6 +250,8 @@ export function PurchaseForm({
                     type="number"
                     min="0.001"
                     step="any"
+                    inputMode="decimal"
+                    className="font-mono tabular-nums"
                     value={line.qty}
                     onChange={(e) =>
                       setLines((rows) =>
@@ -257,6 +267,8 @@ export function PurchaseForm({
                     type="number"
                     min="0"
                     step="0.01"
+                    inputMode="decimal"
+                    className="font-mono tabular-nums"
                     value={line.unitRate}
                     onChange={(e) =>
                       setLines((rows) =>

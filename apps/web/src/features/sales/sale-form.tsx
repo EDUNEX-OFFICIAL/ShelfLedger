@@ -260,6 +260,7 @@ export function SaleForm({
                   <AsyncSkuCombobox
                     id={`sale-var-${index}`}
                     value={line.variantId}
+                    selectedLabel={catalog.get(line.variantId)?.label ?? null}
                     onHits={mergeHits}
                     onValueChange={(id, hit) => {
                       if (hit) setCatalog((prev) => mergeCatalog(prev, [hit]));
@@ -276,7 +277,7 @@ export function SaleForm({
                         ),
                       );
                     }}
-                    placeholder="Search item code…"
+                    placeholder="Search item…"
                     required
                   />
                 </FormField>
@@ -286,6 +287,8 @@ export function SaleForm({
                     type="number"
                     min="0.001"
                     step="any"
+                    inputMode="decimal"
+                    className="font-mono tabular-nums"
                     value={line.qty}
                     onChange={(e) =>
                       setLines((rows) =>
@@ -301,6 +304,8 @@ export function SaleForm({
                     type="number"
                     min="0"
                     step="0.01"
+                    inputMode="decimal"
+                    className="font-mono tabular-nums"
                     value={line.unitPrice}
                     onChange={(e) =>
                       setLines((rows) =>

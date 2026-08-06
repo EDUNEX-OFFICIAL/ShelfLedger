@@ -6,7 +6,7 @@ import { Banknote, CreditCard, Smartphone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { MoneyText } from '@/components/shared/money-text';
+import { formatInr } from '@/components/shared/money-text';
 import { addSalePaymentAction } from '@/features/sales/actions';
 import { cn } from '@/lib/utils';
 
@@ -86,7 +86,9 @@ export function CollectPaymentButton({
             </p>
             <p className="mt-2 text-sm">
               Due{' '}
-              <MoneyText value={dueAmount} className="text-base font-semibold" />
+              <span className="font-mono text-base font-semibold tabular-nums">
+                {formatInr(dueAmount)}
+              </span>
             </p>
 
             <div className="mt-4 space-y-2">
@@ -102,7 +104,7 @@ export function CollectPaymentButton({
                       aria-pressed={selected}
                       onClick={() => setMethod(opt.value)}
                       className={cn(
-                        'flex h-12 items-center justify-center gap-1.5 rounded-xl border text-sm font-semibold transition',
+                        'flex h-12 items-center justify-center gap-1.5 rounded-lg border text-sm font-semibold transition',
                         selected
                           ? 'border-primary bg-primary text-primary-foreground'
                           : 'border-border/80 bg-card text-muted-foreground hover:bg-muted',
@@ -133,7 +135,7 @@ export function CollectPaymentButton({
                 inputMode="decimal"
                 min="0.01"
                 step="0.01"
-                className="h-12 text-base"
+                className="h-12 font-mono text-base tabular-nums"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
               />

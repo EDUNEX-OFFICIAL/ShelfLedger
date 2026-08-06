@@ -112,6 +112,14 @@ const PAY_OPTIONS = [
   { value: 'CARD' as const, label: 'Card', hotkey: '3', Icon: CreditCard },
 ];
 
+/** Keep one decimal for money fields typed as text (avoids NaN from "12.3.4"). */
+function sanitizeDecimalInput(value: string): string {
+  const cleaned = value.replace(/[^\d.]/g, '');
+  const dot = cleaned.indexOf('.');
+  if (dot === -1) return cleaned;
+  return `${cleaned.slice(0, dot + 1)}${cleaned.slice(dot + 1).replace(/\./g, '')}`;
+}
+
 const emptyLine = (): Line => ({
   id: crypto.randomUUID(),
   variantId: '',
@@ -582,7 +590,7 @@ export function QuickSaleForm({
               aria-pressed={selected}
               aria-keyshortcuts={opt.hotkey}
               className={cn(
-                'relative flex h-11 items-center justify-center gap-1.5 rounded-lg border px-2 text-sm font-medium leading-none transition duration-150',
+                'relative flex h-11 items-center justify-center gap-1.5 rounded-lg border px-2 text-sm font-semibold leading-none transition duration-150',
                 selected
                   ? 'border-primary bg-primary text-primary-foreground shadow-sm'
                   : 'border-border/80 bg-card text-muted-foreground hover:bg-muted',
@@ -593,7 +601,7 @@ export function QuickSaleForm({
               <span className="leading-none">{opt.label}</span>
               <kbd
                 className={cn(
-                  'pointer-events-none absolute right-1.5 top-1.5 hidden h-3.5 min-w-[0.875rem] items-center justify-center rounded border px-0.5 font-mono text-[9px] font-medium leading-none md:inline-flex',
+                  'pointer-events-none absolute right-1.5 top-1.5 hidden h-3.5 min-w-[0.875rem] items-center justify-center rounded border px-0.5 font-mono text-[9px] font-medium leading-none xl:inline-flex',
                   selected
                     ? 'border-primary-foreground/25 text-primary-foreground/75'
                     : 'border-border/80 text-muted-foreground',
@@ -645,13 +653,11 @@ export function QuickSaleForm({
             <Label htmlFor="qs-bill-disc">Bill discount (₹)</Label>
             <Input
               id="qs-bill-disc"
-              type="number"
-              min="0"
-              step="0.01"
+              type="text"
               inputMode="decimal"
-              className="h-11"
+              className="h-11 font-mono tabular-nums"
               value={billDiscount}
-              onChange={(e) => setBillDiscount(e.target.value)}
+              onChange={(e) => setBillDiscount(sanitizeDecimalInput(e.target.value))}
             />
           </div>
         ) : null}
@@ -807,7 +813,7 @@ export function QuickSaleForm({
         aria-pressed={useWalkIn}
         onClick={() => setWalkInMode(true)}
         className={cn(
-          'h-11 rounded-xl border text-sm font-semibold transition',
+          'h-11 rounded-lg border text-sm font-semibold transition',
           useWalkIn
             ? 'border-primary bg-primary text-primary-foreground'
             : 'border-border/80 bg-card text-muted-foreground active:bg-muted',
@@ -820,7 +826,7 @@ export function QuickSaleForm({
         aria-pressed={!useWalkIn}
         onClick={() => setWalkInMode(false)}
         className={cn(
-          'h-11 rounded-xl border text-sm font-semibold transition',
+          'h-11 rounded-lg border text-sm font-semibold transition',
           !useWalkIn
             ? 'border-primary bg-primary text-primary-foreground'
             : 'border-border/80 bg-card text-muted-foreground active:bg-muted',
@@ -864,9 +870,9 @@ export function QuickSaleForm({
               type="button"
               aria-pressed={selected}
               className={cn(
-                'flex h-11 items-center justify-center gap-1.5 rounded-xl border px-2 text-sm font-semibold transition',
+                'flex h-11 items-center justify-center gap-1.5 rounded-lg border px-2 text-sm font-semibold transition',
                 selected
-                  ? 'border-primary bg-primary text-primary-foreground'
+                  ? 'border-primary bg-primary text-primary-foreground shadow-sm'
                   : 'border-border/80 bg-card text-muted-foreground active:bg-muted',
               )}
               onClick={() => choosePay(opt.value)}
@@ -887,21 +893,19 @@ export function QuickSaleForm({
           {showAdjust ? 'Hide discount' : 'Discount'}
         </button>
         <span className="text-xs text-muted-foreground">
-          GST <MoneyText value={totals.tax} className="text-xs" />
+          GST {formatInr(totals.tax)}
         </span>
       </div>
       {showAdjust ? (
-        <div className="space-y-1">
+        <div className="space-y-1.5">
           <Label htmlFor="qs-bill-disc-m">Bill discount (₹)</Label>
           <Input
             id="qs-bill-disc-m"
-            type="number"
-            min="0"
-            step="0.01"
+            type="text"
             inputMode="decimal"
-            className="h-11"
+            className="h-11 font-mono tabular-nums"
             value={billDiscount}
-            onChange={(e) => setBillDiscount(e.target.value)}
+            onChange={(e) => setBillDiscount(sanitizeDecimalInput(e.target.value))}
           />
         </div>
       ) : null}
@@ -1092,8 +1096,8 @@ export function QuickSaleForm({
                 {readyLines.length} {readyLines.length === 1 ? 'line' : 'lines'}
               </Badge>
               {readyLines.length > 0 ? (
-                <Badge variant="primary">
-                  <MoneyText value={totals.total} className="text-[11px] font-semibold" />
+                <Badge variant="primary" className="font-mono tabular-nums">
+                  {formatInr(totals.total)}
                 </Badge>
               ) : null}
             </div>
@@ -1142,7 +1146,7 @@ export function QuickSaleForm({
 
           {articleChips.length > 0 ? (
             <div className="space-y-1.5">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
                 Articles
               </p>
               <div
@@ -1153,7 +1157,7 @@ export function QuickSaleForm({
                   <button
                     key={a.id}
                     type="button"
-                    className="h-11 shrink-0 rounded-xl border border-border/80 bg-card px-3 text-left active:bg-muted"
+                    className="h-11 shrink-0 rounded-lg border border-border/80 bg-card px-3 text-left active:bg-muted"
                     onClick={() => openMatrix(a.id)}
                   >
                     <span className="block max-w-[9rem] truncate text-xs font-semibold leading-tight">
@@ -1196,7 +1200,7 @@ export function QuickSaleForm({
           ) : null}
 
           <SurfaceCard padding="none" className="overflow-hidden">
-            <div className="hidden grid-cols-[minmax(0,1fr)_10.5rem_6.5rem_5.5rem_2.75rem] items-center gap-2 border-b border-border/80 bg-muted/40 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground md:grid">
+            <div className="hidden grid-cols-[minmax(0,1fr)_10.5rem_7.5rem_5.5rem_2.75rem] items-center gap-2 border-b border-border/80 bg-muted/40 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground md:grid">
               <span>Item</span>
               <span>Qty</span>
               <span>Price</span>
@@ -1217,7 +1221,7 @@ export function QuickSaleForm({
                   <li
                     key={line.id}
                     className={cn(
-                      'animate-qs-row-in space-y-2.5 px-3 py-3 md:grid md:grid-cols-[minmax(0,1fr)_10.5rem_6.5rem_5.5rem_2.75rem] md:items-start md:gap-2 md:space-y-0',
+                      'animate-qs-row-in space-y-2.5 px-3 py-3 md:grid md:grid-cols-[minmax(0,1fr)_10.5rem_7.5rem_5.5rem_2.75rem] md:items-start md:gap-2 md:space-y-0',
                       overQty && 'bg-destructive/[0.03]',
                     )}
                   >
@@ -1329,20 +1333,19 @@ export function QuickSaleForm({
                       <Label className="md:sr-only">Price</Label>
                       {line.variantId ? (
                         <Input
-                          type="number"
-                          min="0"
-                          step="0.01"
+                          type="text"
                           inputMode="decimal"
-                          className="h-11"
+                          className="h-11 px-2 font-mono text-sm tabular-nums"
                           value={line.unitPrice}
-                          onChange={(e) =>
+                          onChange={(e) => {
+                            const raw = sanitizeDecimalInput(e.target.value);
                             setLines((rows) =>
                               rows.map((r, i) =>
-                                i === index ? { ...r, unitPrice: e.target.value } : r,
+                                i === index ? { ...r, unitPrice: raw } : r,
                               ),
-                            )
-                          }
-                          required
+                            );
+                          }}
+                          aria-label="Unit price"
                         />
                       ) : (
                         <div
@@ -1363,7 +1366,7 @@ export function QuickSaleForm({
                             className="text-sm font-semibold tabular-nums"
                           />
                           <p className="text-[11px] text-muted-foreground">
-                            GST <MoneyText value={est.tax} className="text-[11px]" />
+                            GST {formatInr(est.tax)}
                           </p>
                         </div>
                       ) : (

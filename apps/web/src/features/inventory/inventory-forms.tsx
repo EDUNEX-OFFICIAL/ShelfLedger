@@ -25,6 +25,7 @@ const DIRECTION_OPTIONS = [
 export function OpeningStockForm({ canWrite }: { canWrite: boolean }) {
   const router = useRouter();
   const [variantId, setVariantId] = useState('');
+  const [variantLabel, setVariantLabel] = useState<string | null>(null);
   const [qty, setQty] = useState('1');
   const [unitCost, setUnitCost] = useState('');
   const [notes, setNotes] = useState('');
@@ -52,6 +53,7 @@ export function OpeningStockForm({ canWrite }: { canWrite: boolean }) {
           }
           setMessage({ tone: 'ok', text: 'Starting stock saved to stock history' });
           setVariantId('');
+          setVariantLabel(null);
           setQty('1');
           setUnitCost('');
           setNotes('');
@@ -66,8 +68,12 @@ export function OpeningStockForm({ canWrite }: { canWrite: boolean }) {
               <AsyncSkuCombobox
                 id="open-var"
                 value={variantId}
-                onValueChange={setVariantId}
-                placeholder="Search item code…"
+                selectedLabel={variantLabel}
+                onValueChange={(id, hit) => {
+                  setVariantId(id);
+                  setVariantLabel(hit?.label ?? null);
+                }}
+                placeholder="Search item…"
                 required
               />
             </FormField>
@@ -77,6 +83,8 @@ export function OpeningStockForm({ canWrite }: { canWrite: boolean }) {
                 type="number"
                 min="0.001"
                 step="any"
+                inputMode="decimal"
+                className="font-mono tabular-nums"
                 value={qty}
                 onChange={(e) => setQty(e.target.value)}
                 required
@@ -88,6 +96,8 @@ export function OpeningStockForm({ canWrite }: { canWrite: boolean }) {
                 type="number"
                 min="0"
                 step="0.01"
+                inputMode="decimal"
+                className="font-mono tabular-nums"
                 value={unitCost}
                 onChange={(e) => setUnitCost(e.target.value)}
                 required
@@ -133,6 +143,7 @@ export function OpeningStockForm({ canWrite }: { canWrite: boolean }) {
 export function AdjustmentForm({ canWrite }: { canWrite: boolean }) {
   const router = useRouter();
   const [variantId, setVariantId] = useState('');
+  const [variantLabel, setVariantLabel] = useState<string | null>(null);
   const [qty, setQty] = useState('1');
   const [direction, setDirection] = useState<'IN' | 'OUT' | 'DAMAGE' | 'LOST'>('OUT');
   const [reason, setReason] = useState('');
@@ -159,6 +170,9 @@ export function AdjustmentForm({ canWrite }: { canWrite: boolean }) {
             return;
           }
           setMessage({ tone: 'ok', text: 'Adjustment saved to stock history' });
+          setVariantId('');
+          setVariantLabel(null);
+          setQty('1');
           setReason('');
           router.refresh();
         });
@@ -171,8 +185,12 @@ export function AdjustmentForm({ canWrite }: { canWrite: boolean }) {
               <AsyncSkuCombobox
                 id="adj-var"
                 value={variantId}
-                onValueChange={setVariantId}
-                placeholder="Search item code…"
+                selectedLabel={variantLabel}
+                onValueChange={(id, hit) => {
+                  setVariantId(id);
+                  setVariantLabel(hit?.label ?? null);
+                }}
+                placeholder="Search item…"
                 required
               />
             </FormField>
@@ -190,6 +208,8 @@ export function AdjustmentForm({ canWrite }: { canWrite: boolean }) {
                 type="number"
                 min="0.001"
                 step="any"
+                inputMode="decimal"
+                className="font-mono tabular-nums"
                 value={qty}
                 onChange={(e) => setQty(e.target.value)}
                 required

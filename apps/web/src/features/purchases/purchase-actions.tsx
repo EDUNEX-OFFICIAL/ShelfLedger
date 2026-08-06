@@ -161,7 +161,7 @@ export function ReturnPurchaseButton({
               <li
                 key={row.id}
                 className={cn(
-                  'grid gap-2 rounded-lg border border-border/70 bg-muted/20 p-2.5 sm:grid-cols-[auto_minmax(0,1fr)_5.5rem] sm:items-center',
+                  'grid gap-2 rounded-lg border border-border/70 bg-muted/20 p-2.5 sm:grid-cols-[auto_minmax(0,1fr)_7.5rem] sm:items-center',
                   row.checked && 'ring-1 ring-primary/25',
                 )}
               >
@@ -192,6 +192,8 @@ export function ReturnPurchaseButton({
                     min="0.001"
                     step="any"
                     max={line.qty}
+                    inputMode="decimal"
+                    className="font-mono tabular-nums"
                     disabled={!row.checked}
                     value={row.qty}
                     onChange={(e) =>

@@ -10,7 +10,7 @@ import type { AsyncSkuHit } from '@/components/ui/async-sku-combobox';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { MoneyText } from '@/components/shared/money-text';
+import { formatInr } from '@/components/shared/money-text';
 import { cn } from '@/lib/utils';
 
 export type ArticleHit = {
@@ -123,6 +123,16 @@ export function ArticleMatrixPicker({
   }, [variants]);
 
   const activeColor = colorFilter && colors.includes(colorFilter) ? colorFilter : colors[0] ?? null;
+
+  const fromPrice = useMemo(() => {
+    if (!activeColor) return null;
+    const prices = variants
+      .filter((v) => v.color === activeColor)
+      .map((v) => v.sellingPrice)
+      .filter((n) => Number.isFinite(n));
+    if (prices.length === 0) return null;
+    return Math.min(...prices);
+  }, [variants, activeColor]);
 
   const bySizeColor = useMemo(() => {
     const map = new Map<string, AsyncSkuHit>();
@@ -259,7 +269,7 @@ export function ArticleMatrixPicker({
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
             {colors.length > 1 ? (
               <div className="space-y-2">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
                   Colour
                 </p>
                 <div className="flex gap-2 overflow-x-auto pb-0.5">
@@ -272,7 +282,7 @@ export function ArticleMatrixPicker({
                         aria-pressed={selected}
                         onClick={() => setColorFilter(c)}
                         className={cn(
-                          'h-11 shrink-0 rounded-xl border px-4 text-sm font-semibold transition',
+                          'h-11 shrink-0 rounded-lg border px-4 text-sm font-semibold transition',
                           selected
                             ? 'border-primary bg-primary text-primary-foreground'
                             : 'border-border/80 bg-card text-foreground hover:bg-muted',
@@ -287,10 +297,10 @@ export function ArticleMatrixPicker({
             ) : null}
 
             <div className="space-y-2">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
                 Size{activeColor ? ` · ${activeColor}` : ''}
               </p>
-              <div className="grid grid-cols-3 gap-2 xs:grid-cols-4 sm:grid-cols-5">
+              <div className="grid grid-cols-4 gap-2 sm:grid-cols-5">
                 {sizes.map((size) => {
                   const v = activeColor
                     ? bySizeColor.get(`${size}||${activeColor}`)
@@ -299,7 +309,7 @@ export function ArticleMatrixPicker({
                     return (
                       <div
                         key={size}
-                        className="flex h-14 items-center justify-center rounded-xl border border-dashed border-border/60 text-sm text-muted-foreground/50"
+                        className="flex h-14 items-center justify-center rounded-lg border border-dashed border-border/60 text-sm text-muted-foreground/50"
                         aria-hidden
                       >
                         {size}
@@ -316,7 +326,7 @@ export function ArticleMatrixPicker({
                         onClose();
                       }}
                       className={cn(
-                        'flex h-14 flex-col items-center justify-center rounded-xl border px-1 transition active:scale-[0.98]',
+                        'flex h-14 flex-col items-center justify-center rounded-lg border px-1 transition active:scale-[0.98]',
                         low
                           ? 'border-border/60 bg-muted/40 text-muted-foreground'
                           : 'border-border/80 bg-card hover:border-primary hover:bg-primary/5',
@@ -334,19 +344,12 @@ export function ArticleMatrixPicker({
               </div>
             </div>
 
-            {activeColor ? (
+            {fromPrice != null ? (
               <p className="text-center text-xs text-muted-foreground">
                 From{' '}
-                <MoneyText
-                  value={
-                    Math.min(
-                      ...variants
-                        .filter((v) => v.color === activeColor)
-                        .map((v) => v.sellingPrice),
-                    )
-                  }
-                  className="text-xs font-medium text-foreground"
-                />
+                <span className="font-mono text-xs font-medium tabular-nums text-foreground">
+                  {formatInr(fromPrice)}
+                </span>
               </p>
             ) : null}
           </div>
