@@ -39,6 +39,8 @@ type Props = {
   seedOptions?: AsyncSkuOption[];
   /** Called whenever server search returns hits (merge into catalog). */
   onHits?: (hits: AsyncSkuHit[]) => void;
+  /** Forced label when value is set outside search (matrix / catalog pick). */
+  selectedLabel?: string | null;
   placeholder?: string;
   allowClear?: boolean;
   clearLabel?: string;
@@ -91,6 +93,7 @@ export function AsyncSkuCombobox({
   onValueChange,
   seedOptions = [],
   onHits,
+  selectedLabel = null,
   placeholder = 'Search item code…',
   allowClear = false,
   clearLabel = 'None',
@@ -130,6 +133,12 @@ export function AsyncSkuCombobox({
 
   React.useEffect(() => {
     if (!value) return;
+    if (selectedLabel) {
+      setLabelCache((c) =>
+        c[value] === selectedLabel ? c : { ...c, [value]: selectedLabel },
+      );
+      return;
+    }
     const fromSeed = seedOptions.find((o) => o.value === value);
     if (fromSeed) {
       setLabelCache((c) => (c[value] === fromSeed.label ? c : { ...c, [value]: fromSeed.label }));
@@ -139,9 +148,10 @@ export function AsyncSkuCombobox({
     if (fromHit) {
       setLabelCache((c) => (c[value] === fromHit.label ? c : { ...c, [value]: fromHit.label }));
     }
-  }, [value, seedOptions, hits]);
+  }, [value, seedOptions, hits, selectedLabel]);
 
   const displayLabel =
+    (value && selectedLabel) ||
     (value && labelCache[value]) ||
     seedOptions.find((o) => o.value === value)?.label ||
     hits.find((h) => h.id === value)?.label ||

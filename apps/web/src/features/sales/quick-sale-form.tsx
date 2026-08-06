@@ -35,7 +35,7 @@ import {
   type AsyncSkuOption,
 } from '@/components/ui/async-sku-combobox';
 import { SurfaceCard } from '@/components/shared/surface-card';
-import { MoneyText } from '@/components/shared/money-text';
+import { MoneyText, formatInr } from '@/components/shared/money-text';
 import { ConfirmDialog } from '@/components/shared/confirm-dialog';
 import {
   StickyFormActions,
@@ -679,7 +679,7 @@ export function QuickSaleForm({
             size="lg"
             disabled={disabled}
             className={cn(
-              'h-12 min-h-12 flex-1 text-base font-semibold shadow-sm',
+              'h-12 min-h-12 flex-1 whitespace-nowrap text-base font-semibold shadow-sm',
               punchSuccess && 'bg-success text-success-foreground hover:bg-success',
             )}
             aria-live="polite"
@@ -698,10 +698,13 @@ export function QuickSaleForm({
                 Punching…
               </span>
             ) : (
-              <span className="inline-flex items-center gap-2">
-                Punch
+              <span className="inline-flex max-w-full items-center justify-center gap-1.5 whitespace-nowrap">
+                <span>Punch</span>
+                <span aria-hidden className="opacity-70">
+                  ·
+                </span>
                 <span className="font-mono text-base font-semibold tabular-nums">
-                  · <MoneyText value={totals.total} className="text-base font-semibold" />
+                  {formatInr(totals.total)}
                 </span>
               </span>
             )}
@@ -1193,8 +1196,8 @@ export function QuickSaleForm({
           ) : null}
 
           <SurfaceCard padding="none" className="overflow-hidden">
-            <div className="hidden grid-cols-[minmax(0,1fr)_8.5rem_6.5rem_5.5rem_2.75rem] items-center gap-2 border-b border-border/80 bg-muted/40 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground md:grid">
-              <span>Item code</span>
+            <div className="hidden grid-cols-[minmax(0,1fr)_10.5rem_6.5rem_5.5rem_2.75rem] items-center gap-2 border-b border-border/80 bg-muted/40 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground md:grid">
+              <span>Item</span>
               <span>Qty</span>
               <span>Price</span>
               <span className="text-right">Line</span>
@@ -1214,18 +1217,19 @@ export function QuickSaleForm({
                   <li
                     key={line.id}
                     className={cn(
-                      'animate-qs-row-in space-y-2.5 px-3 py-3 md:grid md:grid-cols-[minmax(0,1fr)_8.5rem_6.5rem_5.5rem_2.75rem] md:items-start md:gap-2 md:space-y-0',
+                      'animate-qs-row-in space-y-2.5 px-3 py-3 md:grid md:grid-cols-[minmax(0,1fr)_10.5rem_6.5rem_5.5rem_2.75rem] md:items-start md:gap-2 md:space-y-0',
                       overQty && 'bg-destructive/[0.03]',
                     )}
                   >
                     <div className="min-w-0 space-y-1.5">
-                      <Label className="md:sr-only">Item code</Label>
+                      <Label className="md:sr-only">Item</Label>
                       <AsyncSkuCombobox
                         value={line.variantId}
+                        selectedLabel={v?.label ?? null}
                         onValueChange={(id, hit) => setLineVariant(index, id, hit)}
                         onHits={mergeHits}
                         seedOptions={seedOptions}
-                        placeholder="Search item code…"
+                        placeholder="Search item…"
                         required={index === 0 || Boolean(line.variantId)}
                         autoFocus={index === 0 && focusSkuIndex === 0}
                         triggerRef={(el) => {
@@ -1234,19 +1238,24 @@ export function QuickSaleForm({
                         triggerClassName="h-11"
                       />
                       {v ? (
-                        <Badge
-                          variant={
-                            overQty || outOfStock
-                              ? 'destructive'
-                              : lowStock
-                                ? 'warning'
-                                : 'muted'
-                          }
-                          className="font-mono"
-                        >
-                          Stock {v.onHandQty}
-                          {overQty ? ' · over' : outOfStock ? ' · out' : null}
-                        </Badge>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <Badge
+                            variant={
+                              overQty || outOfStock
+                                ? 'destructive'
+                                : lowStock
+                                  ? 'warning'
+                                  : 'muted'
+                            }
+                            className="font-mono"
+                          >
+                            Stock {v.onHandQty}
+                            {overQty ? ' · over' : outOfStock ? ' · out' : null}
+                          </Badge>
+                          <span className="text-[11px] text-muted-foreground">
+                            {v.size}/{v.color}
+                          </span>
+                        </div>
                       ) : null}
                     </div>
 
@@ -1272,20 +1281,28 @@ export function QuickSaleForm({
                           <Minus className="h-4 w-4" />
                         </Button>
                         <Input
-                          type="number"
-                          min="1"
-                          step="1"
+                          type="text"
                           inputMode="numeric"
-                          className="h-11 text-center"
+                          pattern="[0-9]*"
+                          className="h-11 min-w-[2.75rem] flex-1 px-1 text-center font-mono text-base font-semibold tabular-nums"
                           value={line.qty}
-                          onChange={(e) =>
+                          onChange={(e) => {
+                            const raw = e.target.value.replace(/\D/g, '');
                             setLines((rows) =>
                               rows.map((r, i) =>
-                                i === index ? { ...r, qty: e.target.value } : r,
+                                i === index ? { ...r, qty: raw } : r,
                               ),
-                            )
-                          }
-                          required={Boolean(line.variantId)}
+                            );
+                          }}
+                          onBlur={() => {
+                            if (Number(line.qty) > 0) return;
+                            setLines((rows) =>
+                              rows.map((r, i) =>
+                                i === index ? { ...r, qty: '1' } : r,
+                              ),
+                            );
+                          }}
+                          aria-label="Quantity"
                         />
                         <Button
                           type="button"
